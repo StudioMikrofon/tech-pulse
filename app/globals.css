@@ -1,0 +1,391 @@
+@import "tailwindcss";
+
+:root {
+  --background: #05070D;
+  --foreground: #EAF0FF;
+  --font-heading: var(--font-space-grotesk);
+  --font-body: var(--font-inter);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-body);
+  --font-heading: var(--font-heading);
+
+  /* Space colors */
+  --color-space-bg: #05070D;
+  --color-space-surface: rgba(255, 255, 255, 0.06);
+  --color-space-border: rgba(255, 255, 255, 0.10);
+
+  /* Text */
+  --color-text-primary: #EAF0FF;
+  --color-text-secondary: #A7B3D1;
+
+  /* Accents */
+  --color-accent-starlight: #F5E6A8;
+  --color-accent-cyan: #8FD3FF;
+  --color-accent-amber: #FFCF6E;
+
+  /* Categories */
+  --color-category-ai: #A78BFA;
+  --color-category-gaming: #F87171;
+  --color-category-space: #60A5FA;
+  --color-category-technology: #34D399;
+  --color-category-medicine: #FB923C;
+  --color-category-society: #F472B6;
+  --color-category-robotics: #38BDF8;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body), system-ui, sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Nebula gradient overlay */
+.nebula-bg {
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(139, 92, 246, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(59, 130, 246, 0.05) 0%, transparent 50%);
+}
+
+/* =========================================================================
+   Glass card
+   ========================================================================= */
+.glass-card {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 12px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.glass-card:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    0 0 40px rgba(143, 211, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+/* =========================================================================
+   Category badges
+   ========================================================================= */
+.category-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+}
+
+.category-badge-ai { background: rgba(167, 139, 250, 0.2); color: #A78BFA; }
+.category-badge-gaming { background: rgba(248, 113, 113, 0.2); color: #F87171; }
+.category-badge-space { background: rgba(96, 165, 250, 0.2); color: #60A5FA; }
+.category-badge-technology { background: rgba(52, 211, 153, 0.2); color: #34D399; }
+.category-badge-medicine { background: rgba(251, 146, 60, 0.2); color: #FB923C; }
+.category-badge-society { background: rgba(244, 114, 182, 0.2); color: #F472B6; }
+.category-badge-robotics { background: rgba(56, 189, 248, 0.2); color: #38BDF8; }
+
+/* =========================================================================
+   Ticker animation
+   ========================================================================= */
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.ticker-track {
+  display: flex;
+  animation: ticker-scroll 60s linear infinite;
+  width: max-content;
+}
+
+/* =========================================================================
+   Live dot pulse
+   ========================================================================= */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #34D399;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* =========================================================================
+   Globe effects
+   ========================================================================= */
+.globe-glow {
+  filter: drop-shadow(0 0 60px rgba(143, 211, 255, 0.15))
+          drop-shadow(0 0 120px rgba(96, 165, 250, 0.08));
+}
+
+.globe-loading-ring {
+  width: 64px;
+  height: 64px;
+  border: 2px solid rgba(143, 211, 255, 0.2);
+  border-top-color: #8FD3FF;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Globe pin pulse */
+@keyframes pin-pulse {
+  0% { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(3); opacity: 0; }
+}
+
+/* =========================================================================
+   Terminal text effect
+   ========================================================================= */
+.terminal-text {
+  font-family: "Courier New", "Lucida Console", monospace;
+  letter-spacing: 0.12em;
+}
+
+/* =========================================================================
+   Article card warp-out animation (click)
+   ========================================================================= */
+@keyframes warp-out {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+    filter: blur(0);
+  }
+  60% {
+    transform: scale(1.05);
+    opacity: 0.8;
+    filter: blur(2px);
+  }
+  100% {
+    transform: scale(0.95);
+    opacity: 0;
+    filter: blur(8px);
+  }
+}
+
+.article-warp-out {
+  animation: warp-out 0.4s ease-in forwards;
+  pointer-events: none;
+}
+
+/* Warp ripple from click point */
+@keyframes warp-ripple {
+  0% {
+    width: 0;
+    height: 0;
+    opacity: 0.5;
+  }
+  100% {
+    width: 500px;
+    height: 500px;
+    opacity: 0;
+  }
+}
+
+.animate-warp-ripple {
+  animation: warp-ripple 0.5s ease-out forwards;
+}
+
+/* =========================================================================
+   Card scan line (hover)
+   ========================================================================= */
+@keyframes card-scan {
+  0% { top: -10%; }
+  100% { top: 110%; }
+}
+
+.card-scan-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(143, 211, 255, 0.5) 50%,
+    transparent 100%
+  );
+  box-shadow: 0 0 10px rgba(143, 211, 255, 0.3);
+  animation: card-scan 1.5s ease-in-out infinite;
+}
+
+/* =========================================================================
+   Article page entrance animation
+   ========================================================================= */
+@keyframes article-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(30px);
+    filter: blur(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+.article-enter {
+  animation: article-enter 0.6s ease-out forwards;
+}
+
+.article-enter-delay-1 {
+  opacity: 0;
+  animation: article-enter 0.6s ease-out 0.1s forwards;
+}
+
+.article-enter-delay-2 {
+  opacity: 0;
+  animation: article-enter 0.6s ease-out 0.2s forwards;
+}
+
+.article-enter-delay-3 {
+  opacity: 0;
+  animation: article-enter 0.6s ease-out 0.3s forwards;
+}
+
+/* =========================================================================
+   Article prose styling
+   ========================================================================= */
+.article-prose {
+  color: #EAF0FF;
+  line-height: 1.8;
+}
+
+.article-prose h2 {
+  color: #EAF0FF;
+  font-family: var(--font-heading), sans-serif;
+  font-weight: 700;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+}
+
+.article-prose p {
+  margin-bottom: 1.25rem;
+  color: #c8d3e8;
+}
+
+.article-prose a {
+  color: #8FD3FF;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.article-prose code {
+  color: #F5E6A8;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.article-prose blockquote {
+  border-left: 3px solid #8FD3FF;
+  padding-left: 1rem;
+  color: #A7B3D1;
+  font-style: italic;
+}
+
+/* =========================================================================
+   Section headers with terminal style
+   ========================================================================= */
+.section-header {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.section-header::before {
+  content: "//";
+  font-family: "Courier New", monospace;
+  color: rgba(143, 211, 255, 0.3);
+  font-size: 0.8em;
+}
+
+/* =========================================================================
+   Scrollbar styling
+   ========================================================================= */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #05070D;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(143, 211, 255, 0.15);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(143, 211, 255, 0.3);
+}
+
+/* =========================================================================
+   Grid articles staggered fade-in
+   ========================================================================= */
+@keyframes grid-card-in {
+  0% {
+    opacity: 0;
+    transform: translateY(40px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.grid-card-animate {
+  opacity: 0;
+  animation: grid-card-in 0.5s ease-out forwards;
+}
+
+/* =========================================================================
+   Reduced motion
+   ========================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  .ticker-track {
+    animation: none;
+  }
+  .glass-card:hover {
+    transform: none;
+  }
+  .live-dot {
+    animation: none;
+  }
+  .card-scan-line {
+    animation: none;
+  }
+  .article-warp-out {
+    animation: none;
+  }
+  .grid-card-animate {
+    opacity: 1;
+    animation: none;
+  }
+  .article-enter,
+  .article-enter-delay-1,
+  .article-enter-delay-2,
+  .article-enter-delay-3 {
+    opacity: 1;
+    animation: none;
+  }
+}

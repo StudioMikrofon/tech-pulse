@@ -1,0 +1,76 @@
+{
+  "sources": [
+    {
+      "name": "TechCrunch",
+      "url": "https://techcrunch.com/feed/",
+      "categories": ["ai", "technology", "robotics"],
+      "priority": 1
+    },
+    {
+      "name": "The Verge",
+      "url": "https://www.theverge.com/rss/index.xml",
+      "categories": ["technology", "gaming", "ai"],
+      "priority": 1
+    },
+    {
+      "name": "Ars Technica",
+      "url": "https://feeds.arstechnica.com/arstechnica/index",
+      "categories": ["technology", "space", "ai"],
+      "priority": 1
+    },
+    {
+      "name": "Wired",
+      "url": "https://www.wired.com/feed/rss",
+      "categories": ["technology", "ai", "society"],
+      "priority": 2
+    },
+    {
+      "name": "SpaceNews",
+      "url": "https://spacenews.com/feed/",
+      "categories": ["space"],
+      "priority": 1
+    },
+    {
+      "name": "Space.com",
+      "url": "https://www.space.com/feeds/all",
+      "categories": ["space"],
+      "priority": 1
+    },
+    {
+      "name": "MIT Technology Review",
+      "url": "https://www.technologyreview.com/feed/",
+      "categories": ["ai", "medicine", "technology"],
+      "priority": 1
+    },
+    {
+      "name": "IEEE Spectrum",
+      "url": "https://spectrum.ieee.org/feeds/feed.rss",
+      "categories": ["robotics", "technology", "ai"],
+      "priority": 2
+    },
+    {
+      "name": "STAT News",
+      "url": "https://www.statnews.com/feed/",
+      "categories": ["medicine"],
+      "priority": 1
+    },
+    {
+      "name": "Engadget",
+      "url": "https://www.engadget.com/rss.xml",
+      "categories": ["gaming", "technology"],
+      "priority": 2
+    },
+    {
+      "name": "VentureBeat",
+      "url": "https://venturebeat.com/feed/",
+      "categories": ["ai", "technology"],
+      "priority": 2
+    },
+    {
+      "name": "The Robot Report",
+      "url": "https://www.therobotreport.com/feed/",
+      "categories": ["robotics"],
+      "priority": 1
+    }
+  ]
+}
