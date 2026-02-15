@@ -75,3 +75,21 @@ export function getGeoArticles(): Article[] {
     (a) => a.geo && a.geo.lat !== undefined && a.geo.lon !== undefined
   );
 }
+
+/**
+ * Returns the latest article for each category (for the Global Feed sidebar).
+ * Each category is represented by at most one article (the newest).
+ */
+export function getLatestPerCategory(): Article[] {
+  const articles = getAllArticles();
+  const seen = new Set<string>();
+  const result: Article[] = [];
+
+  for (const article of articles) {
+    if (!seen.has(article.category)) {
+      seen.add(article.category);
+      result.push(article);
+    }
+  }
+  return result;
+}

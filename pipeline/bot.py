@@ -17,6 +17,7 @@ import logging
 import os
 import re
 import sys
+import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -68,12 +69,13 @@ CATEGORY_EMOJI = {
 
 
 def slugify(text: str) -> str:
-    """Convert text to URL-friendly slug."""
+    """Convert text to URL-friendly ASCII-only slug."""
     text = text.lower().strip()
-    text = re.sub(r"[^\w\s-]", "", text)
-    text = re.sub(r"[\s_]+", "-", text)
-    text = re.sub(r"-+", "-", text)
-    return text[:60].strip("-")
+    # Decompose diacritics (š→s, č→c, ž→z, etc.) then drop combining marks
+    text = unicodedata.normalize("NFKD", text)
+    text = text.encode("ascii", "ignore").decode("ascii")
+    text = re.sub(r"[^a-z0-9]+", "-", text)
+    return text.strip("-")[:60].rstrip("-")
 
 
 def make_article_id(title: str) -> str:

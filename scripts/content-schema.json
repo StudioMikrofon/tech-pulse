@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Tech Pulse Article",
+  "description": "Schema for article frontmatter",
+  "type": "object",
+  "required": ["id", "title", "category", "date", "excerpt", "source", "image", "tags", "geo"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$",
+      "description": "URL-friendly article identifier"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 200
+    },
+    "category": {
+      "type": "string",
+      "enum": ["ai", "gaming", "space", "technology", "medicine", "society", "robotics"]
+    },
+    "date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "excerpt": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 300
+    },
+    "source": {
+      "type": "object",
+      "required": ["name", "url"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "url": { "type": "string", "format": "uri" }
+      },
+      "additionalProperties": false
+    },
+    "image": {
+      "type": "object",
+      "required": ["url", "alt"],
+      "properties": {
+        "url": { "type": "string" },
+        "alt": { "type": "string", "minLength": 5 }
+      },
+      "additionalProperties": false
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "maxItems": 10
+    },
+    "geo": {
+      "type": "object",
+      "required": ["name", "lat", "lon", "countryCode"],
+      "properties": {
+        "name": { "type": "string" },
+        "lat": { "type": "number", "minimum": -90, "maximum": 90 },
+        "lon": { "type": "number", "minimum": -180, "maximum": 180 },
+        "countryCode": { "type": "string", "pattern": "^[A-Z]{2}$" }
+      },
+      "additionalProperties": false
+    },
+    "featured": {
+      "type": "boolean",
+      "default": false
+    },
+    "approved": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "additionalProperties": false
+}

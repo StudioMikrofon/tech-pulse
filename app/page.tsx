@@ -2,6 +2,7 @@ import {
   getAllArticles,
   getFeaturedArticle,
   getGeoArticles,
+  getLatestPerCategory,
 } from "@/lib/content";
 import HeroSection from "@/components/HeroSection";
 import Ticker from "@/components/Ticker";
@@ -12,6 +13,7 @@ export default function HomePage() {
   const articles = getAllArticles();
   const featured = getFeaturedArticle();
   const geoArticles = getGeoArticles();
+  const latestPerCategory = getLatestPerCategory();
 
   if (!featured) {
     return (
@@ -33,7 +35,7 @@ export default function HomePage() {
       <div className="fixed inset-0 pointer-events-none opacity-[0.08] z-0">
         <SolarSystem />
       </div>
-      <HeroSection featured={featured} geoArticles={geoArticles} />
+      <HeroSection featured={featured} geoArticles={geoArticles} latestPerCategory={latestPerCategory} />
       <Ticker articles={articles} />
       <section className="max-w-7xl mx-auto px-4 pb-16">
         <h2 className="section-header font-heading text-2xl font-bold text-text-primary mb-6">

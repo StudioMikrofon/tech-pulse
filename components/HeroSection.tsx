@@ -12,11 +12,13 @@ import { formatDistanceToNow } from "@/lib/utils";
 interface HeroSectionProps {
   featured: Article;
   geoArticles: Article[];
+  latestPerCategory?: Article[];
 }
 
 export default function HeroSection({
   featured,
   geoArticles,
+  latestPerCategory = [],
 }: HeroSectionProps) {
   const globeRef = useRef<GlobeHandle>(null);
   const [globeSize, setGlobeSize] = useState({ w: 800, h: 800 });
@@ -138,13 +140,13 @@ export default function HeroSection({
             </Link>
           </div>
 
-          {/* Side panel - recent geo articles */}
+          {/* Side panel - latest article per category */}
           <div className="lg:col-span-2 hidden lg:block">
             <div className="glass-card p-4 space-y-3 !hover:transform-none">
               <h3 className="text-xs font-mono text-accent-cyan/60 uppercase tracking-widest mb-3">
-                // Global Feed
+                // Global Feed — Latest per Category
               </h3>
-              {geoArticles.slice(0, 5).map((article) => (
+              {(latestPerCategory.length > 0 ? latestPerCategory : geoArticles).slice(0, 7).map((article) => (
                 <Link
                   key={article.id}
                   href={`/article/${article.category}/${article.id}`}

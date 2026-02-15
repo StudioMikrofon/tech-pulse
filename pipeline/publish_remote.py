@@ -16,7 +16,9 @@ Requires in .env:
 import base64
 import json
 import os
+import re
 import sys
+import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -119,13 +121,25 @@ def publish_to_github(article: dict) -> dict:
         category = "technology"
         article["category"] = category
 
-    # Ensure ID exists
+    # Ensure ID exists — ASCII-only slug (strip diacritics: š→s, č→c, etc.)
     if not article.get("id"):
         date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         slug = article.get("title", "untitled").lower()
-        slug = "".join(c if c.isalnum() or c == "-" else "-" for c in slug)
-        slug = "-".join(filter(None, slug.split("-")))[:60]
+        # Normalize unicode: decompose diacritics then strip combining marks
+        slug = unicodedata.normalize("NFKD", slug)
+        slug = slug.encode("ascii", "ignore").decode("ascii")
+        slug = re.sub(r"[^a-z0-9]+", "-", slug)
+        slug = slug.strip("-")[:60].rstrip("-")
         article["id"] = f"{date_str}-{slug}"
+    else:
+        # Also sanitize existing IDs that may contain non-ASCII
+        old_id = article["id"]
+        sanitized = unicodedata.normalize("NFKD", old_id)
+        sanitized = sanitized.encode("ascii", "ignore").decode("ascii")
+        sanitized = re.sub(r"[^a-z0-9-]+", "-", sanitized.lower())
+        sanitized = sanitized.strip("-").rstrip("-")
+        if sanitized != old_id:
+            article["id"] = sanitized
 
     # Ensure date exists
     if not article.get("date"):
