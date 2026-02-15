@@ -14,6 +14,7 @@ import { formatDistanceToNow } from "@/lib/utils";
 import GlobeWidget from "@/components/GlobeWidget";
 import ArticleGlobeBackground from "@/components/ArticleGlobeBackground";
 import SolarSystemBackground from "@/components/SolarSystemBackground";
+import Comments from "@/components/Comments";
 import type { Metadata } from "next";
 
 interface PageProps {
@@ -189,6 +190,9 @@ export default async function ArticlePage({ params }: PageProps) {
                 </div>
               </div>
             )}
+
+            {/* Comments */}
+            <Comments term={`${article.category}/${article.id}`} />
           </div>
 
           {/* Sidebar */}

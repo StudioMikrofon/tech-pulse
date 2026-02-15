@@ -11,6 +11,7 @@
     "validate-content": "tsx scripts/validate-content.ts"
   },
   "dependencies": {
+    "@giscus/react": "^3.1.0",
     "ajv": "^8.17.1",
     "gray-matter": "^4.0.3",
     "lucide-react": "^0.564.0",

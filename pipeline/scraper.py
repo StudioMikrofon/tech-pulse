@@ -258,8 +258,13 @@ INSTRUCTIONS:
 4. Write the full article as 400-700 words in Markdown. Be factual and informative.
    Do NOT copy the original text verbatim - rewrite it in your own words.
    Use subheadings (##) where appropriate.
-5. Generate 3-7 relevant tags (lowercase, no hashes).
-6. Determine the primary geographic location relevant to this story.
+5. Include 3-5 relevant hyperlinks in the article body where appropriate.
+   - Link to official websites, product pages, company sites, event pages, etc.
+   - Use standard Markdown link syntax: [text](url)
+   - Only use real, well-known URLs (e.g. official company sites, Wikipedia for concepts)
+   - Don't link every word - be selective and natural
+6. Generate 3-7 relevant tags (lowercase, no hashes).
+7. Determine the primary geographic location relevant to this story.
    {locations_hint}
    If the article mentions a known company, map it to the company HQ.
    If you can identify a location, provide name, lat, lon, countryCode.
