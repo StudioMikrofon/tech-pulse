@@ -16,9 +16,9 @@ export default function Comments({ term }: CommentsProps) {
       <Giscus
         id="comments"
         repo="StudioMikrofon/tech-pulse"
-        repoId=""
-        category="Article Comments"
-        categoryId=""
+        repoId="R_kgDORQbw1Q"
+        category="Article comments"
+        categoryId="DIC_kwDORQbw1c4C2g7i"
         mapping="specific"
         term={term}
         reactionsEnabled="1"
