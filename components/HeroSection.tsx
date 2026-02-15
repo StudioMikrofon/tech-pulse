@@ -21,6 +21,8 @@ export default function HeroSection({
   const globeRef = useRef<GlobeHandle>(null);
   const [globeSize, setGlobeSize] = useState({ w: 800, h: 800 });
   const [activePin, setActivePin] = useState<string | null>(null);
+  const [globeInteracting, setGlobeInteracting] = useState(false);
+  const interactTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     function updateSize() {
@@ -54,8 +56,25 @@ export default function HeroSection({
   return (
     <section className="relative min-h-[90vh] flex items-center overflow-hidden">
       {/* Massive globe as background */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-auto opacity-30 lg:opacity-40">
-        <div className="globe-glow">
+      <div
+        className="absolute inset-0 flex items-center justify-center pointer-events-auto opacity-30 lg:opacity-40"
+        style={{ opacity: globeInteracting ? 0.55 : undefined }}
+        onMouseDown={() => {
+          setGlobeInteracting(true);
+          if (interactTimeoutRef.current) clearTimeout(interactTimeoutRef.current);
+        }}
+        onMouseUp={() => {
+          interactTimeoutRef.current = setTimeout(() => setGlobeInteracting(false), 2000);
+        }}
+        onTouchStart={() => {
+          setGlobeInteracting(true);
+          if (interactTimeoutRef.current) clearTimeout(interactTimeoutRef.current);
+        }}
+        onTouchEnd={() => {
+          interactTimeoutRef.current = setTimeout(() => setGlobeInteracting(false), 2000);
+        }}
+      >
+        <div className={`globe-glow ${globeInteracting ? "globe-interacting" : ""}`}>
           <Globe
             ref={globeRef}
             pins={pins}
@@ -86,11 +105,11 @@ export default function HeroSection({
               {CATEGORY_LABELS[featured.category]}
             </span>
 
-            <h1 className="font-heading text-4xl md:text-5xl lg:text-6xl font-bold text-text-primary leading-[1.1] drop-shadow-lg">
+            <h1 className="font-heading text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-text-primary leading-[1.1] drop-shadow-lg">
               {featured.title}
             </h1>
 
-            <p className="text-lg md:text-xl text-text-secondary leading-relaxed max-w-2xl drop-shadow-md">
+            <p className="text-base sm:text-lg md:text-xl text-text-secondary leading-relaxed max-w-2xl drop-shadow-md">
               {featured.excerpt}
             </p>
 
@@ -112,7 +131,7 @@ export default function HeroSection({
 
             <Link
               href={`/article/${featured.category}/${featured.id}`}
-              className="article-link-cta inline-flex items-center gap-2 px-8 py-4 bg-accent-cyan/10 border border-accent-cyan/30 rounded-xl text-accent-cyan font-semibold text-lg hover:bg-accent-cyan/20 hover:border-accent-cyan/50 hover:shadow-[0_0_30px_rgba(143,211,255,0.15)] transition-all duration-300"
+              className="article-link-cta inline-flex items-center gap-2 px-6 py-3 sm:px-8 sm:py-4 bg-accent-cyan/10 border border-accent-cyan/30 rounded-xl text-accent-cyan font-semibold text-base sm:text-lg hover:bg-accent-cyan/20 hover:border-accent-cyan/50 hover:shadow-[0_0_30px_rgba(143,211,255,0.15)] transition-all duration-300"
             >
               Read Article
               <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />

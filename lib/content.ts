@@ -66,7 +66,8 @@ export function getArticlesByCategory(category: Category): Article[] {
 
 export function getFeaturedArticle(): Article | null {
   const articles = getAllArticles();
-  return articles.find((a) => a.featured) || articles[0] || null;
+  // Always show the newest article as featured (hero)
+  return articles[0] || null;
 }
 
 export function getGeoArticles(): Article[] {

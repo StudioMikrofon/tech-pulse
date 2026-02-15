@@ -126,8 +126,16 @@ const GlobeWrapper = forwardRef<GlobeHandle, GlobeWrapperProps>(
         pointColor="color"
         pointAltitude={0.02}
         pointRadius={0.6}
-        pointLabel="label"
         onPointClick={handlePinClick}
+        labelsData={pins}
+        labelLat="lat"
+        labelLng="lng"
+        labelText="label"
+        labelSize={0.4}
+        labelDotRadius={0.15}
+        labelColor="color"
+        labelAltitude={0.015}
+        labelResolution={2}
         animateIn={true}
       />
     );

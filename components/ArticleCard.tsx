@@ -132,10 +132,10 @@ export default function ArticleCard({ article, onGeoClick }: ArticleCardProps) {
 
       {/* Content */}
       <div className="p-4 flex-1 flex flex-col">
-        <h3 className="font-heading font-bold text-text-primary text-lg leading-tight mb-2 line-clamp-2 group-hover:text-accent-cyan transition-colors duration-300">
+        <h3 className="font-heading font-bold text-text-primary text-base sm:text-lg leading-snug mb-2 line-clamp-2 group-hover:text-accent-cyan transition-colors duration-300">
           {article.title}
         </h3>
-        <p className="text-sm text-text-secondary line-clamp-3 mb-3 flex-1">
+        <p className="text-sm sm:text-[0.9rem] text-text-secondary line-clamp-3 mb-3 flex-1 leading-relaxed">
           {article.excerpt}
         </p>
 
