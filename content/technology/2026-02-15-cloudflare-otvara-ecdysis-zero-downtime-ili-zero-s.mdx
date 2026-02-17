@@ -1,0 +1,33 @@
+---
+id: "2026-02-15-cloudflare-otvara-ecdysis-zero-downtime-ili-zero-s"
+title: "Cloudflare otvara Ecdysis: Zero-downtime ili zero-sense?"
+category: "technology"
+date: "2026-02-15T12:00:00Z"
+excerpt: "Pet godina u produkciji, milijuni zaštićenih veza, i tek sada open source. Gdje je catch?"
+source:
+  name: "Cloudflare Blog"
+  url: "https://blog.cloudflare.com/ecdysis-rust-graceful-restarts/"
+image:
+  url: "/images/articles/cloudflare-otvara-ecdysis-zero-downtime-ili-zero-s.png"
+  alt: "Cloudflare otvara Ecdysis: Zero-downtime ili zero-sense?"
+tags: ["future-pulse", "automated", "technology"]
+geo:
+  name: "San Francisco, US"
+  lat: 37.7749
+  lon: -122.4194
+  countryCode: "US"
+featured: false
+approved: true
+---
+
+Kad Cloudflare konačno otvori kod svoje Rust biblioteke Ecdysis, koja omogućuje nadogradnje mrežnih servisa bez zastajanja, pitanje nije 'zašto sada?' već 'zašto uopće?'. Pet godina u produkciji, milijuni zaštićenih veza, i tek sada open source – ili kako bi rekli u Hrvatskoj, 'poslije kiše kapa'. 
+
+Ecdysis je tehnički impresivan: Rust biblioteka koja omogućuje live upgradeove bez prekida veza, što je ekvivalent zamjene motora u automobilu dok vozi 200 na sat. Cloudflare tvrdi da je kroz pet godina zaštitio 'milijune veza', što zvuči spektakularno dok ne shvatite da je to manje od 0,1% njihovog dnevnog prometa. Za usporedbu, NGINX i Envoy već godinama imaju slične funkcionalnosti, samo bez Rust hypea. 
+
+Ovo je u biti priča o tome kako infrastrukturni giganti pretvaraju osnovne alate u marketinške trofeje. Dok AWS i Google još uvijek relyaju na stare metode blue-green deploymenta, Cloudflare se hvali Rustom kao da su izmislili toplu vodu. Istina je da je zero-downtime deploy postao standard u CDN industriji, ali Ecdysis nije ništa više od lokalnog optimizacijskog trika. 
+
+Što znači za industriju? Cloudflare dobiva još jedan PR bod u borbi protiv AWS-ovih Lambda@Edge, dok manji igrači mogu samo gledati kako se borba titana svodi na to tko će bolje prodati već postojeće tehnologije. Open source verzija je čisti PR potez – realno, tko će riskirati produkcijski deploy nečega što Cloudflare već pet godina drži ispod haube? 
+
+Budućnost? Ecdysis će završiti u rukama par entuzijasta koji će ga koristiti za edge caseove dok će većina nastaviti s Kubernetes rolling updatesima. Cloudflare će nastaviti tvrditi kako su reinventirali točak, a mi ćemo nastaviti pitati zašto točak treba reinventing. 
+
+Rust fanboyi dobili su novu igračku, a mi svi – još jedan open source projekat koji nitko neće koristiti.
