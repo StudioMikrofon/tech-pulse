@@ -14,13 +14,13 @@ export default function Ticker({ articles }: TickerProps) {
   const items = [...articles, ...articles];
 
   return (
-    <div className="border-y border-white/5 overflow-hidden py-3 my-8">
+    <div className="ticker-container border-y border-white/5 overflow-hidden py-3 my-8">
       <div className="ticker-track">
         {items.map((article, i) => (
           <Link
             key={`${article.id}-${i}`}
             href={`/article/${article.category}/${article.id}`}
-            className="flex items-center gap-2 px-6 whitespace-nowrap text-sm group"
+            className="flex items-center gap-2 px-6 whitespace-nowrap text-sm group transition-transform hover:scale-105 hover:drop-shadow-[0_0_8px_rgba(143,211,255,0.3)]"
           >
             <Zap className="w-3 h-3 text-accent-amber flex-shrink-0" />
             <span

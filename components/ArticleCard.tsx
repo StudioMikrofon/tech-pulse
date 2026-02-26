@@ -25,6 +25,8 @@ export default function ArticleCard({ article, onGeoClick }: ArticleCardProps) {
   const [isWarping, setIsWarping] = useState(false);
   const [loadingLine, setLoadingLine] = useState(0);
   const [ripplePos, setRipplePos] = useState({ x: 0, y: 0 });
+  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
+  const [isHovered, setIsHovered] = useState(false);
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -55,7 +57,20 @@ export default function ArticleCard({ article, onGeoClick }: ArticleCardProps) {
     <div
       ref={cardRef}
       onClick={handleClick}
-      onMouseEnter={() => playSound("hover")}
+      onMouseEnter={(e) => {
+        setIsHovered(true);
+        playSound("hover");
+      }}
+      onMouseLeave={() => {
+        setIsHovered(false);
+        setMousePos(null);
+      }}
+      onMouseMove={(e) => {
+        const rect = cardRef.current?.getBoundingClientRect();
+        if (rect) {
+          setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+        }
+      }}
       className={`glass-card overflow-hidden flex flex-col group cursor-pointer relative ${
         isWarping ? "article-warp-out" : ""
       }`}
@@ -162,6 +177,16 @@ export default function ArticleCard({ article, onGeoClick }: ArticleCardProps) {
           )}
         </div>
       </div>
+
+      {/* Holographic shimmer on hover */}
+      {isHovered && mousePos && (
+        <div
+          className="absolute inset-0 opacity-20 pointer-events-none z-10 transition-opacity duration-300"
+          style={{
+            background: `radial-gradient(circle 180px at ${mousePos.x}px ${mousePos.y}px, rgba(255,0,128,0.3), rgba(0,255,128,0.2) 30%, rgba(0,128,255,0.2) 60%, transparent 70%)`,
+          }}
+        />
+      )}
 
       {/* Bottom glow on hover */}
       <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-accent-cyan/0 to-transparent group-hover:via-accent-cyan/50 transition-all duration-500" />

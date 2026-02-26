@@ -15,6 +15,7 @@ import GlobeWidget from "@/components/GlobeWidget";
 import ArticleGlobeBackground from "@/components/ArticleGlobeBackground";
 import SolarSystemBackground from "@/components/SolarSystemBackground";
 import Comments from "@/components/Comments";
+import YouTubeEmbed from "@/components/YouTubeEmbed";
 import type { Metadata } from "next";
 
 interface PageProps {
@@ -68,7 +69,7 @@ export default async function ArticlePage({ params }: PageProps) {
     },
     publisher: {
       "@type": "Organization",
-      name: "Tech Pulse",
+      name: "TECH AND SPACE",
     },
   };
 
@@ -171,7 +172,7 @@ export default async function ArticlePage({ params }: PageProps) {
 
             {/* MDX content */}
             <div className="article-enter-delay-3 article-prose max-w-none">
-              <MDXRemote source={article.content} />
+              <MDXRemote source={article.content} components={{ YouTubeEmbed }} />
             </div>
 
             {/* Tags */}

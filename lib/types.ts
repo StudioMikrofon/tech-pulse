@@ -59,5 +59,6 @@ export interface Article {
   geo: GeoLocation;
   featured: boolean;
   approved: boolean;
+  videoUrl?: string;
   content: string;
 }

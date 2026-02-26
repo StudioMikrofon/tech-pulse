@@ -2,7 +2,7 @@
 
 import { useRef, useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowRight, MapPin, Clock, Satellite } from "lucide-react";
+import { ArrowRight, MapPin, Clock, Satellite, Hand } from "lucide-react";
 import Globe from "./Globe";
 import type { GlobeHandle } from "./GlobeWrapper";
 import type { Article } from "@/lib/types";
@@ -21,23 +21,48 @@ export default function HeroSection({
   latestPerCategory = [],
 }: HeroSectionProps) {
   const globeRef = useRef<GlobeHandle>(null);
-  const [globeSize, setGlobeSize] = useState({ w: 800, h: 800 });
+  const globeContainerRef = useRef<HTMLDivElement>(null);
+  const [globeSize, setGlobeSize] = useState(600);
   const [activePin, setActivePin] = useState<string | null>(null);
   const [globeInteracting, setGlobeInteracting] = useState(false);
+  const [showGrabHint, setShowGrabHint] = useState(false);
   const interactTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     function updateSize() {
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      // Globe fills most of the viewport
-      const size = Math.max(w, h) * 0.95;
-      setGlobeSize({ w: Math.min(size, 1400), h: Math.min(size, 1400) });
+      if (globeContainerRef.current) {
+        const w = globeContainerRef.current.clientWidth;
+        setGlobeSize(Math.min(w, 700));
+      }
     }
     updateSize();
     window.addEventListener("resize", updateSize);
     return () => window.removeEventListener("resize", updateSize);
   }, []);
+
+  // Show grab hint if user hasn't interacted yet this session
+  useEffect(() => {
+    const hasInteracted = sessionStorage.getItem("globe-interacted");
+    if (!hasInteracted) {
+      setShowGrabHint(true);
+    }
+  }, []);
+
+  const handleGlobeInteract = () => {
+    setGlobeInteracting(true);
+    if (showGrabHint) {
+      setShowGrabHint(false);
+      sessionStorage.setItem("globe-interacted", "true");
+    }
+    if (interactTimeoutRef.current) clearTimeout(interactTimeoutRef.current);
+  };
+
+  const handleGlobeRelease = () => {
+    interactTimeoutRef.current = setTimeout(
+      () => setGlobeInteracting(false),
+      2000
+    );
+  };
 
   const pins = geoArticles.map((a) => ({
     lat: a.geo.lat,
@@ -56,48 +81,52 @@ export default function HeroSection({
   };
 
   return (
-    <section className="relative min-h-[90vh] flex items-center overflow-hidden">
-      {/* Massive globe as background */}
-      <div
-        className="absolute inset-0 flex items-center justify-center pointer-events-auto opacity-30 lg:opacity-40"
-        style={{ opacity: globeInteracting ? 0.55 : undefined }}
-        onMouseDown={() => {
-          setGlobeInteracting(true);
-          if (interactTimeoutRef.current) clearTimeout(interactTimeoutRef.current);
-        }}
-        onMouseUp={() => {
-          interactTimeoutRef.current = setTimeout(() => setGlobeInteracting(false), 2000);
-        }}
-        onTouchStart={() => {
-          setGlobeInteracting(true);
-          if (interactTimeoutRef.current) clearTimeout(interactTimeoutRef.current);
-        }}
-        onTouchEnd={() => {
-          interactTimeoutRef.current = setTimeout(() => setGlobeInteracting(false), 2000);
-        }}
-      >
-        <div className={`globe-glow ${globeInteracting ? "globe-interacting" : ""}`}>
-          <Globe
-            ref={globeRef}
-            pins={pins}
-            width={globeSize.w}
-            height={globeSize.h}
-            autoRotate={true}
-            enableZoom={true}
-            initialAltitude={2.0}
-          />
+    <section className="relative overflow-hidden">
+      {/* Main 2-column grid: text left, globe right */}
+      <div className="max-w-7xl mx-auto px-4 py-8 lg:py-16 w-full">
+        {/* Mobile: globe shows ABOVE text */}
+        <div className="block lg:hidden mb-8">
+          <div
+            ref={globeContainerRef}
+            className="relative min-h-[350px] flex items-center justify-center cursor-grab active:cursor-grabbing"
+            onMouseDown={handleGlobeInteract}
+            onMouseUp={handleGlobeRelease}
+            onTouchStart={handleGlobeInteract}
+            onTouchEnd={handleGlobeRelease}
+          >
+            <div
+              className={`globe-glow transition-opacity duration-500 ${
+                globeInteracting ? "globe-interacting opacity-100" : "opacity-70"
+              }`}
+            >
+              <Globe
+                ref={globeRef}
+                pins={pins}
+                width={globeSize}
+                height={350}
+                autoRotate={true}
+                enableZoom={true}
+                initialAltitude={2.0}
+              />
+            </div>
+            {showGrabHint && (
+              <div className="grab-hint absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 text-xs text-accent-cyan/60 font-mono pointer-events-none">
+                <Hand className="w-4 h-4" />
+                <span>Drag to explore</span>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Content overlay */}
-      <div className="relative z-10 max-w-7xl mx-auto px-4 py-16 w-full">
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 items-center">
-          {/* Featured article - takes 3 cols */}
-          <div className="lg:col-span-3 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+          {/* Left: Featured article text */}
+          <div className="space-y-6">
             {/* Terminal-style status line */}
             <div className="flex items-center gap-2 text-xs font-mono text-accent-cyan/70">
               <Satellite className="w-3 h-3 animate-pulse" />
-              <span className="terminal-text">LIVE FEED // ORBITAL NETWORK</span>
+              <span className="terminal-text">
+                LIVE FEED // ORBITAL NETWORK
+              </span>
               <span className="live-dot" />
             </div>
 
@@ -140,47 +169,94 @@ export default function HeroSection({
             </Link>
           </div>
 
-          {/* Side panel - latest article per category */}
-          <div className="lg:col-span-2 hidden lg:block">
-            <div className="glass-card p-4 space-y-3 !hover:transform-none">
-              <h3 className="text-xs font-mono text-accent-cyan/60 uppercase tracking-widest mb-3">
-                // Global Feed — Latest per Category
-              </h3>
-              {(latestPerCategory.length > 0 ? latestPerCategory : geoArticles).slice(0, 7).map((article) => (
-                <Link
-                  key={article.id}
-                  href={`/article/${article.category}/${article.id}`}
-                  className={`block p-3 rounded-lg transition-all duration-300 border border-transparent hover:border-accent-cyan/20 hover:bg-white/5 ${
-                    activePin === article.id ? "bg-white/8 border-accent-cyan/30" : ""
-                  }`}
-                  onMouseEnter={() => handlePinHover(article.id)}
-                  onMouseLeave={() => setActivePin(null)}
-                >
-                  <div className="flex items-start gap-3">
-                    <div
-                      className="w-2 h-2 rounded-full mt-2 shrink-0 animate-pulse"
-                      style={{ backgroundColor: CATEGORY_COLORS[article.category] }}
-                    />
-                    <div>
-                      <p className="text-sm font-medium text-text-primary line-clamp-2 leading-tight">
-                        {article.title}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1 text-xs text-text-secondary">
-                        <span>{CATEGORY_LABELS[article.category]}</span>
-                        {article.geo && (
-                          <>
-                            <span className="opacity-30">|</span>
-                            <span className="flex items-center gap-1">
-                              <MapPin className="w-3 h-3" />
-                              {article.geo.name}
-                            </span>
-                          </>
-                        )}
+          {/* Right: Interactive globe (desktop only) */}
+          <div className="hidden lg:flex items-center justify-center">
+            <div
+              ref={globeContainerRef}
+              className="relative cursor-grab active:cursor-grabbing"
+              onMouseDown={handleGlobeInteract}
+              onMouseUp={handleGlobeRelease}
+              onTouchStart={handleGlobeInteract}
+              onTouchEnd={handleGlobeRelease}
+            >
+              <div
+                className={`globe-glow transition-opacity duration-500 ${
+                  globeInteracting
+                    ? "globe-interacting opacity-100"
+                    : "opacity-70"
+                }`}
+              >
+                <Globe
+                  ref={globeRef}
+                  pins={pins}
+                  width={globeSize}
+                  height={globeSize}
+                  autoRotate={true}
+                  enableZoom={true}
+                  initialAltitude={2.0}
+                />
+              </div>
+              {showGrabHint && (
+                <div className="grab-hint absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 text-xs text-accent-cyan/60 font-mono pointer-events-none">
+                  <Hand className="w-4 h-4" />
+                  <span>Drag to explore</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Latest per category panel — below both columns */}
+        <div className="mt-12">
+          <div className="glass-card p-4 space-y-3 !hover:transform-none">
+            <h3 className="text-xs font-mono text-accent-cyan/60 uppercase tracking-widest mb-3">
+              // Global Feed — Latest per Category
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+              {(latestPerCategory.length > 0
+                ? latestPerCategory
+                : geoArticles
+              )
+                .slice(0, 8)
+                .map((article) => (
+                  <Link
+                    key={article.id}
+                    href={`/article/${article.category}/${article.id}`}
+                    className={`block p-3 rounded-lg transition-all duration-300 border border-transparent hover:border-accent-cyan/20 hover:bg-white/5 ${
+                      activePin === article.id
+                        ? "bg-white/8 border-accent-cyan/30"
+                        : ""
+                    }`}
+                    onMouseEnter={() => handlePinHover(article.id)}
+                    onMouseLeave={() => setActivePin(null)}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div
+                        className="w-2 h-2 rounded-full mt-2 shrink-0 animate-pulse"
+                        style={{
+                          backgroundColor: CATEGORY_COLORS[article.category],
+                        }}
+                      />
+                      <div>
+                        <p className="text-sm font-medium text-text-primary line-clamp-2 leading-tight">
+                          {article.title}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1 text-xs text-text-secondary">
+                          <span>{CATEGORY_LABELS[article.category]}</span>
+                          {article.geo && (
+                            <>
+                              <span className="opacity-30">|</span>
+                              <span className="flex items-center gap-1">
+                                <MapPin className="w-3 h-3" />
+                                {article.geo.name}
+                              </span>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                ))}
             </div>
           </div>
         </div>

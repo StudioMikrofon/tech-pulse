@@ -11,15 +11,15 @@ export default function Footer() {
             <div className="flex items-center gap-2 mb-3">
               <img
                 src="/logo.jpg"
-                alt="Tech Pulse"
+                alt="TECH AND SPACE"
                 className="w-8 h-8 rounded-md object-cover"
               />
               <span className="font-heading text-lg font-bold text-text-primary">
-                Tech Pulse
+                TECH AND SPACE
               </span>
             </div>
             <p className="text-sm text-text-secondary">
-              Your portal to the future. Space-themed tech news from around the globe.
+              Your portal to the future. Tech &amp; space news from around the globe.
             </p>
           </div>
 
@@ -55,7 +55,7 @@ export default function Footer() {
 
         <div className="mt-8 pt-8 border-t border-white/5 text-center">
           <p className="text-xs text-text-secondary">
-            &copy; {new Date().getFullYear()} Tech Pulse. Built with Next.js.
+            &copy; {new Date().getFullYear()} TECH AND SPACE. Built with Next.js.
           </p>
         </div>
       </div>

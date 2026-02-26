@@ -6,6 +6,8 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import TerminalBoot from "@/components/TerminalBoot";
 import PageTransition from "@/components/PageTransition";
+import SpaceOverlay from "@/components/SpaceOverlay";
+import KonamiCode from "@/components/KonamiCode";
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",
@@ -21,18 +23,18 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "Tech Pulse — Your Portal to the Future",
-    template: "%s | Tech Pulse",
+    default: "TECH AND SPACE — Your Portal to the Future",
+    template: "%s | TECH AND SPACE",
   },
   description:
-    "Space-themed tech news portal. AI, Gaming, Space, Technology, Medicine, Society, and Robotics — curated from around the globe.",
+    "Tech & space news portal. AI, Gaming, Space, Technology, Medicine, Society, and Robotics — curated from around the globe.",
   openGraph: {
-    title: "Tech Pulse — Your Portal to the Future",
+    title: "TECH AND SPACE — Your Portal to the Future",
     description:
-      "Space-themed tech news portal with 3D globe visualization.",
+      "Tech & space news portal with 3D globe visualization.",
     type: "website",
     locale: "en_US",
-    siteName: "Tech Pulse",
+    siteName: "TECH AND SPACE",
   },
 };
 
@@ -49,6 +51,8 @@ export default function RootLayout({
         <TerminalBoot />
         <Starfield />
         <PageTransition />
+        <SpaceOverlay />
+        <KonamiCode />
         <div className="relative z-10 nebula-bg min-h-screen flex flex-col">
           <Header />
           <main className="flex-1">{children}</main>

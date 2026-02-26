@@ -28,7 +28,7 @@ export async function generateMetadata({
   const label = CATEGORY_LABELS[slug as Category];
   return {
     title: `${label} News`,
-    description: `Latest ${label} news and articles from Tech Pulse.`,
+    description: `Latest ${label} news and articles from TECH AND SPACE.`,
   };
 }
 

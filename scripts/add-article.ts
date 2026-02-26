@@ -1,5 +1,5 @@
 /**
- * add-article.ts — Add a new article to Tech Pulse
+ * add-article.ts — Add a new article to TECH AND SPACE
  *
  * Usage:
  *   npx tsx scripts/add-article.ts --input article.json

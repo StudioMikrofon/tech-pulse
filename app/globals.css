@@ -103,8 +103,26 @@ body {
 
 .ticker-track {
   display: flex;
-  animation: ticker-scroll 60s linear infinite;
+  animation: ticker-scroll 180s linear infinite;
   width: max-content;
+}
+
+.ticker-container:hover .ticker-track {
+  animation-play-state: paused;
+}
+
+/* =========================================================================
+   Grab hint animation
+   ========================================================================= */
+@keyframes grab-hint {
+  0%, 100% { transform: translateX(-50%) rotate(0deg); }
+  25% { transform: translateX(-50%) rotate(-10deg) translateX(-5px); }
+  75% { transform: translateX(-50%) rotate(10deg) translateX(5px); }
+}
+
+.grab-hint {
+  animation: grab-hint 2s ease-in-out 3;
+  animation-fill-mode: forwards;
 }
 
 /* =========================================================================
@@ -481,6 +499,9 @@ body {
   .article-enter-delay-2,
   .article-enter-delay-3 {
     opacity: 1;
+    animation: none;
+  }
+  .grab-hint {
     animation: none;
   }
 }
