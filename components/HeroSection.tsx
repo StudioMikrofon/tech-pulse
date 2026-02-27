@@ -2,7 +2,7 @@
 
 import { useRef, useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowRight, Clock, Satellite, Hand, Globe2 } from "lucide-react";
+import { ArrowRight, Clock, Satellite, Globe2 } from "lucide-react";
 import Globe from "./Globe";
 import GlobeQuiz from "./GlobeQuiz";
 import type { GlobeHandle } from "./GlobeWrapper";
@@ -23,10 +23,7 @@ export default function HeroSection({
   const globeContainerRef = useRef<HTMLDivElement>(null);
   const globeRef = useRef<GlobeHandle>(null);
   const [globeSize, setGlobeSize] = useState(600);
-  const [globeInteracting, setGlobeInteracting] = useState(false);
-  const [showGrabHint, setShowGrabHint] = useState(false);
   const [quizMode, setQuizMode] = useState(false);
-  const interactTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     function updateSize() {
@@ -40,93 +37,27 @@ export default function HeroSection({
     return () => window.removeEventListener("resize", updateSize);
   }, []);
 
-  useEffect(() => {
-    const hasInteracted = sessionStorage.getItem("globe-interacted");
-    if (!hasInteracted) {
-      setShowGrabHint(true);
-    }
-  }, []);
-
-  const handleGlobeInteract = () => {
-    setGlobeInteracting(true);
-    if (showGrabHint) {
-      setShowGrabHint(false);
-      sessionStorage.setItem("globe-interacted", "true");
-    }
-    if (interactTimeoutRef.current) clearTimeout(interactTimeoutRef.current);
-  };
-
-  const handleGlobeRelease = () => {
-    interactTimeoutRef.current = setTimeout(
-      () => setGlobeInteracting(false),
-      2000
-    );
-  };
-
-  const mobileGlobeHeight = 420;
-
   return (
-    <section className="relative overflow-hidden">
-      <div className="max-w-7xl mx-auto px-4 py-8 lg:py-12 w-full">
-        {/* Globe — pure decorative, no pins */}
-        <div
-          ref={globeContainerRef}
-          className="relative flex items-center justify-center cursor-grab active:cursor-grabbing mb-8"
-          style={{ touchAction: "pan-y" }}
-          onMouseDown={handleGlobeInteract}
-          onMouseUp={handleGlobeRelease}
-          onTouchStart={handleGlobeInteract}
-          onTouchEnd={handleGlobeRelease}
-        >
-          <div
-            className={`globe-glow transition-opacity duration-500 ${
-              globeInteracting ? "globe-interacting opacity-100" : "opacity-70"
-            }`}
-          >
-            <Globe
-              ref={globeRef}
-              pins={[]}
-              width={globeSize}
-              height={typeof window !== "undefined" && window.innerWidth < 768 ? mobileGlobeHeight : globeSize}
-              autoRotate={true}
-              enableZoom={true}
-              initialAltitude={1.5}
-            />
-          </div>
-          {showGrabHint && (
-            <div className="grab-hint absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 text-xs text-accent-cyan/60 font-mono pointer-events-none">
-              <Hand className="w-4 h-4" />
-              <span>Drag to explore</span>
-            </div>
-          )}
+    <section className="relative overflow-hidden" ref={globeContainerRef}>
+      {/* Globe as decorative background — centered behind featured article */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-50">
+        <div className="globe-glow">
+          <Globe
+            ref={globeRef}
+            pins={[]}
+            width={globeSize}
+            height={typeof window !== "undefined" && window.innerWidth < 768 ? 420 : globeSize}
+            autoRotate={true}
+            enableZoom={false}
+            initialAltitude={1.5}
+          />
         </div>
+      </div>
 
-        {/* Geography Quiz toggle + quiz panel */}
-        <div className="flex justify-center mb-4">
-          <button
-            onClick={() => {
-              playSound("click");
-              setQuizMode(!quizMode);
-            }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent-cyan/10 border border-accent-cyan/30 text-accent-cyan text-sm font-mono hover:bg-accent-cyan/20 transition-colors cursor-pointer hacker-glow"
-          >
-            <Globe2 className="w-4 h-4" />
-            {quizMode ? "Close Quiz" : "Geography Quiz"}
-          </button>
-        </div>
-        {quizMode && (
-          <div className="mb-8">
-            <GlobeQuiz
-              onFlyTo={(lat, lon) => {
-                globeRef.current?.focusOn({ lat, lon, name: "", countryCode: "" });
-              }}
-              onClose={() => setQuizMode(false)}
-            />
-          </div>
-        )}
-
-        {/* Featured article — centered below globe */}
-        <div className="max-w-3xl mx-auto text-center space-y-5 mb-12">
+      {/* Content overlays globe */}
+      <div className="relative z-10 max-w-7xl mx-auto px-4">
+        {/* Featured article — centered over globe */}
+        <div className="max-w-3xl mx-auto text-center space-y-5 py-20 lg:py-32">
           <div className="flex items-center justify-center gap-2 text-xs font-mono text-accent-cyan/70">
             <Satellite className="w-3 h-3 animate-pulse" />
             <span className="terminal-text">
@@ -165,9 +96,33 @@ export default function HeroSection({
           </Link>
         </div>
 
+        {/* Geography Quiz toggle + quiz panel */}
+        <div className="flex justify-center mb-4">
+          <button
+            onClick={() => {
+              playSound("click");
+              setQuizMode(!quizMode);
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent-cyan/10 border border-accent-cyan/30 text-accent-cyan text-sm font-mono hover:bg-accent-cyan/20 transition-colors cursor-pointer hacker-glow"
+          >
+            <Globe2 className="w-4 h-4" />
+            {quizMode ? "Close Quiz" : "Geography Quiz"}
+          </button>
+        </div>
+        {quizMode && (
+          <div className="mb-8">
+            <GlobeQuiz
+              onFlyTo={(lat, lon) => {
+                globeRef.current?.focusOn({ lat, lon, name: "", countryCode: "" });
+              }}
+              onClose={() => setQuizMode(false)}
+            />
+          </div>
+        )}
+
         {/* Latest per category panel */}
         {latestPerCategory.length > 0 && (
-          <div>
+          <div className="pb-8">
             <div className="glass-card p-4 space-y-3 !hover:transform-none">
               <h3 className="text-xs font-mono text-accent-cyan/60 uppercase tracking-widest mb-3">
                 // Global Feed — Latest per Category

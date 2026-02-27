@@ -9,7 +9,7 @@ import {
   NEO_DATASET,
   ISS_INCLINATION,
 } from "@/lib/space-tracker-data";
-import { generateWireframeTexture } from "@/lib/wireframe-texture";
+
 import type { ISSData } from "@/lib/space-pro-data";
 
 // ---------------------------------------------------------------------------
@@ -164,7 +164,7 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       prevSelectedId: string | null;
       issMesh: THREE.Mesh;
       issOrbitGroup: THREE.Group;
-      asteroidAnims: { mesh: THREE.Mesh; speed: number; angle: number; dist: number; approachAngle: number; trail: THREE.Points }[];
+      asteroidAnims: { mesh: THREE.Mesh; speed: number; angle: number; dist: number; approachAngle: number; trail: THREE.Points; initScale: THREE.Vector3 }[];
       planetAnims: { mesh: THREE.Mesh; angle: number; speed: number; dist: number; tilt: number; selfRotSpeed: number }[];
       hudSprites: { sprite: THREE.Sprite; parent: THREE.Object3D }[];
       scanBand: THREE.Mesh;
@@ -281,35 +281,25 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       const objectMap = new Map<string, THREE.Object3D>();
       const hudSprites: { sprite: THREE.Sprite; parent: THREE.Object3D }[] = [];
 
-      // ===== EARTH =====
-      // Solid core (dark)
+      // ===== EARTH (realistic textured) =====
+      const texLoader = new THREE.TextureLoader();
+      const earthDayTex = texLoader.load("/textures/earth_day.jpg");
+      const earthBumpTex = texLoader.load("/textures/earth_bump.jpg");
       const earthCore = new THREE.Mesh(
-        new THREE.SphereGeometry(EARTH_RADIUS * 0.98, 32, 32),
-        new THREE.MeshBasicMaterial({ color: 0x050710 }),
+        new THREE.SphereGeometry(EARTH_RADIUS, 64, 64),
+        new THREE.MeshStandardMaterial({
+          map: earthDayTex,
+          bumpMap: earthBumpTex,
+          bumpScale: 0.03,
+          roughness: 0.7,
+          metalness: 0.1,
+        }),
       );
       earthCore.position.copy(EARTH_POS);
       scene.add(earthCore);
 
-      // Continent texture layer from wireframe-texture.ts
-      const continentDataUrl = generateWireframeTexture(0.2, 0.15);
-      const continentImg = new Image();
-      continentImg.src = continentDataUrl;
-      continentImg.onload = () => {
-        const continentTex = new THREE.Texture(continentImg);
-        continentTex.needsUpdate = true;
-        const continentMesh = new THREE.Mesh(
-          new THREE.SphereGeometry(EARTH_RADIUS, 48, 48),
-          new THREE.MeshBasicMaterial({ map: continentTex, transparent: true, opacity: 0.9 }),
-        );
-        continentMesh.position.copy(EARTH_POS);
-        scene.add(continentMesh);
-        // Rotate with Earth
-        earthCore.add(continentMesh);
-        continentMesh.position.set(0, 0, 0);
-      };
-
-      // Wireframe sphere on top (lower opacity to show continents beneath)
-      const earthWire = createWireframeSphere(EARTH_RADIUS * 1.005, 0x00d4ff, 0.1, 36);
+      // Subtle cyan wireframe overlay for Jarvis feel
+      const earthWire = createWireframeSphere(EARTH_RADIUS * 1.005, 0x00d4ff, 0.08, 36);
       earthWire.position.copy(EARTH_POS);
       scene.add(earthWire);
       objectMap.set("earth", earthWire);
@@ -403,6 +393,7 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         }
         posAttr.needsUpdate = true;
         aGeo.computeVertexNormals();
+        aGeo.computeBoundingSphere();
 
         // Rocky colors: grays/browns
         const rockyColors = [0x6b6560, 0x7a6e5e, 0x5c5550, 0x8a7d6b, 0x4e4845];
@@ -497,7 +488,7 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         asteroidAnims.push({
           mesh: aMesh, speed: asteroid.speedKmH * 0.000001,
           angle, dist: scaledDist, approachAngle: asteroid.approachAngle,
-          trail,
+          trail, initScale: aMesh.scale.clone(),
         });
       });
 
@@ -969,10 +960,14 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
 
         // Pulse selected object — only asteroids/probes, not earth/planets/sun/DSN
         if (state.selectedId) {
-          // Reset previous selected object scale
+          // Reset previous selected object to its initial scale
           if (state.prevSelectedId && state.prevSelectedId !== state.selectedId) {
             const prev = objectMap.get(state.prevSelectedId);
-            if (prev) prev.scale.set(1, 1, 1);
+            if (prev) {
+              const prevAnim = asteroidAnims.find(a => a.mesh === prev);
+              if (prevAnim) prev.scale.copy(prevAnim.initScale);
+              else prev.scale.set(1, 1, 1);
+            }
             state.prevSelectedId = state.selectedId;
           }
           if (!state.prevSelectedId) state.prevSelectedId = state.selectedId;
@@ -983,7 +978,12 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
             const sel = objectMap.get(state.selectedId);
             if (sel) {
               const s = 1 + Math.sin(elapsed * 5) * 0.1;
-              sel.scale.setScalar(s);
+              const anim = asteroidAnims.find(a => a.mesh === sel);
+              if (anim) {
+                sel.scale.copy(anim.initScale).multiplyScalar(s);
+              } else {
+                sel.scale.setScalar(s);
+              }
             }
           }
         }
@@ -1002,15 +1002,15 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
           }
         }
 
-        // Auto-rotate when idle
+        // Auto-rotate when idle — orbit camera around fixed target (no target drift)
         if (!interacting && !state.flyTarget) {
           idleTime += delta;
           if (idleTime > 3) {
-            const autoSpeed = Math.min((idleTime - 3) * 0.003, 0.008);
-            controls.target.x += Math.sin(elapsed * 0.02) * autoSpeed;
-            const camDir = camera.position.clone().sub(controls.target).normalize();
-            camDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), autoSpeed * 0.3);
-            const camDist = camera.position.distanceTo(controls.target);
+            const autoSpeed = Math.min((idleTime - 3) * 0.002, 0.005);
+            const camDir = camera.position.clone().sub(controls.target);
+            const camDist = camDir.length();
+            camDir.normalize();
+            camDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), autoSpeed * 0.2);
             camera.position.copy(controls.target).add(camDir.multiplyScalar(camDist));
           }
         }
