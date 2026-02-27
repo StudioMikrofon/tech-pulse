@@ -494,9 +494,9 @@ export default function SpaceStage() {
     // Overlay objects (z-20 canvas — rare, flies over content)
     // -----------------------------------------------------------------------
     let overlayObjects: OverlayObject[] = [];
-    let nextOverlaySatTime = randRange(45000, 90000) * (isMobile() ? 2 : 1);
-    let nextOverlayAstTime = randRange(60000, 120000) * (isMobile() ? 2 : 1);
-    let nextOverlayCometTime = randRange(240000, 360000) * (isMobile() ? 1.5 : 1);
+    let nextOverlaySatTime = randRange(20000, 35000) * (isMobile() ? 2 : 1);
+    let nextOverlayAstTime = randRange(50000, 90000) * (isMobile() ? 2 : 1);
+    let nextOverlayCometTime = randRange(30000, 45000) * (isMobile() ? 1.5 : 1);
 
     function spawnOverlayObject(type: OverlayObject["type"]) {
       const fromLeft = Math.random() > 0.5;
@@ -1211,19 +1211,19 @@ export default function SpaceStage() {
         // Spawn overlay objects
         if (elapsedMs >= nextOverlaySatTime) {
           spawnOverlayObject("satellite");
-          nextOverlaySatTime = elapsedMs + randRange(45000, 90000) * (isMobile() ? 2 : 1);
+          nextOverlaySatTime = elapsedMs + randRange(20000, 35000) * (isMobile() ? 2 : 1);
         }
         if (elapsedMs >= nextOverlayAstTime) {
           spawnOverlayObject("asteroid");
-          nextOverlayAstTime = elapsedMs + randRange(60000, 120000) * (isMobile() ? 2 : 1);
+          nextOverlayAstTime = elapsedMs + randRange(50000, 90000) * (isMobile() ? 2 : 1);
         }
         if (elapsedMs >= nextOverlayCometTime) {
           spawnOverlayObject("comet");
-          nextOverlayCometTime = elapsedMs + randRange(240000, 360000) * (isMobile() ? 1.5 : 1);
+          nextOverlayCometTime = elapsedMs + randRange(30000, 45000) * (isMobile() ? 1.5 : 1);
         }
 
-        // Cap at 3 overlay objects
-        while (overlayObjects.length > 3) overlayObjects.shift();
+        // Cap at 5 overlay objects
+        while (overlayObjects.length > 5) overlayObjects.shift();
 
         for (let i = overlayObjects.length - 1; i >= 0; i--) {
           const obj = overlayObjects[i];
@@ -1338,7 +1338,7 @@ export default function SpaceStage() {
       {/* Game toggle button */}
       <button
         onClick={toggleGame}
-        className="fixed bottom-6 right-6 z-[55] w-12 h-12 rounded-full glass-card flex items-center justify-center text-xl hover:scale-110 transition-transform !hover:transform-none cursor-pointer"
+        className="fixed bottom-6 right-6 z-[55] w-12 h-12 rounded-full glass-card flex items-center justify-center text-xl hover:scale-110 transition-transform !hover:transform-none cursor-pointer hidden"
         style={{ pointerEvents: "auto" }}
         aria-label={gameActive ? "Stop game" : "Start Star Catcher"}
         title={gameActive ? "Stop game" : "Star Catcher mini-game"}

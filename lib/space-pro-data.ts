@@ -11,11 +11,20 @@ export interface SolarData {
   auroraChance: "none" | "low" | "moderate" | "high" | "storm";
 }
 
+export interface AsteroidDetail {
+  name: string;
+  distanceLD: number;
+  diameterM: number;
+  speedKmH: number;
+  hazardous: boolean;
+}
+
 export interface AsteroidData {
   countToday: number;
   closestDistanceLD: number; // lunar distances
   closestName: string;
   hazardousCount: number;
+  asteroidList: AsteroidDetail[];
 }
 
 export interface ISSData {
@@ -68,6 +77,16 @@ export interface SpaceProSummary {
 }
 
 // ---------------------------------------------------------------------------
+// DSN Ground Stations
+// ---------------------------------------------------------------------------
+
+export const DSN_STATIONS = [
+  { name: "Goldstone", lat: 35.4267, lon: -116.89, country: "SAD" },
+  { name: "Madrid", lat: 40.4316, lon: -4.2486, country: "Španjolska" },
+  { name: "Canberra", lat: -35.4014, lon: 148.9819, country: "Australija" },
+];
+
+// ---------------------------------------------------------------------------
 // Mock data (fixed timestamps to avoid hydration mismatch)
 // ---------------------------------------------------------------------------
 
@@ -83,6 +102,14 @@ export const MOCK_SPACE_DATA: SpaceProSummary = {
     closestDistanceLD: 2.3,
     closestName: "2024 BX1",
     hazardousCount: 1,
+    asteroidList: [
+      { name: "2024 BX1", distanceLD: 2.3, diameterM: 48, speedKmH: 52400, hazardous: true },
+      { name: "2026 DA14", distanceLD: 5.1, diameterM: 120, speedKmH: 28300, hazardous: false },
+      { name: "2025 YR2", distanceLD: 8.7, diameterM: 35, speedKmH: 41200, hazardous: false },
+      { name: "2026 CK3", distanceLD: 12.4, diameterM: 210, speedKmH: 19800, hazardous: false },
+      { name: "2024 QN1", distanceLD: 3.8, diameterM: 85, speedKmH: 63100, hazardous: true },
+      { name: "2025 FW9", distanceLD: 18.2, diameterM: 15, speedKmH: 35600, hazardous: false },
+    ],
   },
   iss: {
     altitude: 420,

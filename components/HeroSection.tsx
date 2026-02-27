@@ -64,13 +64,31 @@ export default function HeroSection({
     );
   };
 
-  const pins = geoArticles.map((a) => ({
-    lat: a.geo.lat,
-    lng: a.geo.lon,
-    label: a.title.length > 30 ? a.title.slice(0, 30) + "..." : a.title,
-    color: CATEGORY_COLORS[a.category],
-    id: a.id,
-  }));
+  // Group pins by rounded location (1 decimal) to avoid overlap
+  const pins = (() => {
+    const groups = new Map<string, typeof geoArticles>();
+    for (const a of geoArticles) {
+      const key = `${Math.round(a.geo.lat * 10) / 10},${Math.round(a.geo.lon * 10) / 10}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(a);
+    }
+    return Array.from(groups.values()).map((group) => {
+      const first = group[0];
+      const labels = group.map((a) => ({
+        title: a.title,
+        id: a.id,
+        category: a.category,
+        color: CATEGORY_COLORS[a.category],
+      }));
+      return {
+        lat: first.geo.lat,
+        lng: first.geo.lon,
+        label: labels.length === 1 ? first.title : JSON.stringify(labels),
+        color: CATEGORY_COLORS[first.category],
+        id: first.id,
+      };
+    });
+  })();
 
   const handlePinHover = (articleId: string) => {
     setActivePin(articleId);
@@ -89,6 +107,7 @@ export default function HeroSection({
         <div
           ref={globeContainerRef}
           className="relative flex items-center justify-center cursor-grab active:cursor-grabbing mb-8"
+          style={{ touchAction: "pan-y" }}
           onMouseDown={handleGlobeInteract}
           onMouseUp={handleGlobeRelease}
           onTouchStart={handleGlobeInteract}

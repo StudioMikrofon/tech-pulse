@@ -158,33 +158,64 @@ const GlobeWrapper = forwardRef<GlobeHandle, GlobeWrapperProps>(
           `;
           el.appendChild(dot);
 
-          // Tooltip (hidden by default)
+          // Parse label — may be JSON array (grouped pins) or plain string
+          let isGrouped = false;
+          let groupItems: { title: string; id: string; category: string; color: string }[] = [];
+          try {
+            const parsed = JSON.parse(d.label);
+            if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].title) {
+              isGrouped = true;
+              groupItems = parsed;
+            }
+          } catch {
+            // plain text label
+          }
+
+          // Tooltip
           const tooltip = document.createElement("div");
-          tooltip.textContent = d.label;
           tooltip.style.cssText = `
             position: absolute;
             bottom: 14px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(5, 7, 13, 0.85);
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(5, 7, 13, 0.9);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(143, 211, 255, 0.2);
             color: #EAF0FF;
-            font-size: 11px;
+            font-size: 12px;
             font-family: sans-serif;
-            padding: 4px 8px;
-            border-radius: 6px;
-            white-space: nowrap;
-            max-width: 200px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            pointer-events: none;
+            padding: 8px 12px;
+            border-radius: 8px;
+            white-space: normal;
+            max-width: 320px;
+            min-width: 180px;
+            pointer-events: auto;
             opacity: 0;
             transition: opacity 0.2s;
             z-index: 10;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
           `;
+
+          if (isGrouped) {
+            tooltip.innerHTML = groupItems
+              .map(
+                (item) =>
+                  `<a href="/article/${item.category}/${item.id}" style="display:flex;align-items:center;gap:6px;padding:4px 0;color:#EAF0FF;text-decoration:none;border-bottom:1px solid rgba(255,255,255,0.06);transition:color 0.2s;" onmouseover="this.style.color='#8FD3FF'" onmouseout="this.style.color='#EAF0FF'"><span style="width:6px;height:6px;border-radius:50%;background:${item.color};flex-shrink:0;"></span><span style="line-height:1.3;">${item.title}</span></a>`
+              )
+              .join("");
+          } else {
+            const singleLink = document.createElement("a");
+            singleLink.href = `/article/${d.id}`;
+            singleLink.textContent = d.label;
+            singleLink.style.cssText = `color: #EAF0FF; text-decoration: none; line-height: 1.3;`;
+            singleLink.addEventListener("mouseover", () => { singleLink.style.color = "#8FD3FF"; });
+            singleLink.addEventListener("mouseout", () => { singleLink.style.color = "#EAF0FF"; });
+            tooltip.appendChild(singleLink);
+          }
+
           el.appendChild(tooltip);
 
+          // Desktop hover
           el.addEventListener("mouseenter", () => {
             tooltip.style.opacity = "1";
             dot.style.transform = "scale(1.5)";
@@ -193,6 +224,15 @@ const GlobeWrapper = forwardRef<GlobeHandle, GlobeWrapperProps>(
             tooltip.style.opacity = "0";
             dot.style.transform = "scale(1)";
           });
+
+          // Mobile tap toggle
+          let tooltipVisible = false;
+          el.addEventListener("touchstart", (e) => {
+            e.stopPropagation();
+            tooltipVisible = !tooltipVisible;
+            tooltip.style.opacity = tooltipVisible ? "1" : "0";
+            dot.style.transform = tooltipVisible ? "scale(1.5)" : "scale(1)";
+          }, { passive: true });
 
           return el;
         }}

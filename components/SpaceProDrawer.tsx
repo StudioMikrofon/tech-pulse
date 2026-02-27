@@ -11,8 +11,12 @@ import {
   Camera,
   Moon,
   Info,
+  Map,
 } from "lucide-react";
 import { useSpaceProData } from "@/lib/space-pro-data";
+import dynamic from "next/dynamic";
+
+const SpaceTrackerModal = dynamic(() => import("./SpaceTrackerModal"), { ssr: false });
 
 interface SpaceProDrawerProps {
   open: boolean;
@@ -101,6 +105,7 @@ export default function SpaceProDrawer({ open, onClose }: SpaceProDrawerProps) {
   const { data } = useSpaceProData();
   const drawerRef = useRef<HTMLDivElement>(null);
   const [expandedInfo, setExpandedInfo] = useState<string | null>(null);
+  const [trackerMode, setTrackerMode] = useState<"iss" | "dsn" | "asteroids" | null>(null);
 
   const handleEscape = useCallback(
     (e: KeyboardEvent) => {
@@ -252,6 +257,13 @@ export default function SpaceProDrawer({ open, onClose }: SpaceProDrawerProps) {
                 </p>
               </div>
             </div>
+            <button
+              onClick={() => setTrackerMode("asteroids")}
+              className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-amber-400/10 border border-amber-400/20 text-xs font-mono text-accent-amber hover:bg-amber-400/20 transition-colors cursor-pointer"
+            >
+              <Map className="w-3.5 h-3.5" />
+              Prikaži na Karti
+            </button>
           </div>
 
           {/* 3. ISS Trenutno */}
@@ -293,6 +305,13 @@ export default function SpaceProDrawer({ open, onClose }: SpaceProDrawerProps) {
                 </p>
               </div>
             </div>
+            <button
+              onClick={() => setTrackerMode("iss")}
+              className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-cyan-400/10 border border-cyan-400/20 text-xs font-mono text-cyan-400 hover:bg-cyan-400/20 transition-colors cursor-pointer"
+            >
+              <Map className="w-3.5 h-3.5" />
+              Prikaži na Karti
+            </button>
           </div>
 
           {/* 4. Mreža Dubokog Svemira */}
@@ -328,6 +347,13 @@ export default function SpaceProDrawer({ open, onClose }: SpaceProDrawerProps) {
                 </div>
               ))}
             </div>
+            <button
+              onClick={() => setTrackerMode("dsn")}
+              className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-purple-400/10 border border-purple-400/20 text-xs font-mono text-purple-400 hover:bg-purple-400/20 transition-colors cursor-pointer"
+            >
+              <Map className="w-3.5 h-3.5" />
+              Prikaži na Karti
+            </button>
           </div>
 
           {/* 5. Kozmički Događaji */}
@@ -429,6 +455,15 @@ export default function SpaceProDrawer({ open, onClose }: SpaceProDrawerProps) {
           </div>
         </div>
       </div>
+
+      {/* Space Tracker Modal */}
+      {trackerMode && (
+        <SpaceTrackerModal
+          mode={trackerMode}
+          open={true}
+          onClose={() => setTrackerMode(null)}
+        />
+      )}
     </>
   );
 }
