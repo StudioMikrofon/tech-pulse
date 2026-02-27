@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   X, Satellite, Radio, Zap, Activity, MapPin,
-  Rocket, Waves, ChevronRight,
+  Rocket, Waves, ChevronRight, Play, Pause, Volume2,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useSpaceProData, DSN_STATIONS } from "@/lib/space-pro-data";
@@ -19,6 +19,7 @@ import {
   LAUNCH_DATA,
   getTelemetryStub,
 } from "@/lib/space-tracker-data";
+import { playSound } from "@/lib/sounds";
 import type { FocusTarget, JarvisSceneHandle } from "./JarvisScene";
 
 const JarvisScene = dynamic(() => import("./JarvisScene"), { ssr: false });
@@ -43,9 +44,52 @@ const TABS: { key: SidebarTab; label: string; icon: typeof Satellite }[] = [
   { key: "radiojove", label: "JOVE", icon: Waves },
 ];
 
+// JOVE audio samples (NASA public domain)
+const JOVE_AUDIO_SAMPLES = [
+  { id: "jupiter-s-burst", label: "Jupiter S-Burst", src: "https://radiojove.gsfc.nasa.gov/library/multimedia/audio/jove_s_burst.mp3", source: "Jupiter" },
+  { id: "jupiter-l-burst", label: "Jupiter L-Burst", src: "https://radiojove.gsfc.nasa.gov/library/multimedia/audio/jove_l_burst.mp3", source: "Jupiter" },
+  { id: "solar-burst", label: "Solar Type III", src: "https://radiojove.gsfc.nasa.gov/library/multimedia/audio/jove_solar.mp3", source: "Sun" },
+];
+
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
+
+function BootOverlay({ onDone }: { onDone: () => void }) {
+  const [lines, setLines] = useState<{ text: string; status: string }[]>([]);
+
+  useEffect(() => {
+    const sequence = [
+      { text: "> ESTABLISHING SECURE LINK...", status: "[OK]", delay: 0 },
+      { text: "> LOADING JARVIS HOLOGRAPHIC INTERFACE...", status: "[OK]", delay: 500 },
+      { text: "> SIGNAL ACQUIRED — ALL SYSTEMS NOMINAL", status: "", delay: 1000 },
+    ];
+
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    sequence.forEach((item, i) => {
+      timers.push(setTimeout(() => {
+        setLines(prev => [...prev, { text: item.text, status: item.status }]);
+      }, item.delay));
+    });
+
+    timers.push(setTimeout(onDone, 1500));
+    return () => timers.forEach(clearTimeout);
+  }, [onDone]);
+
+  return (
+    <div className="absolute inset-0 z-30 bg-[#030509]/95 flex items-center justify-center animate-fade-out" style={{ animationDelay: "1.2s", animationDuration: "0.3s", animationFillMode: "forwards" }}>
+      <div className="space-y-2 font-mono text-sm text-cyan-400 max-w-md px-4">
+        {lines.map((line, i) => (
+          <div key={i} className="flex items-center gap-2 animate-typewriter-line" style={{ animationDelay: `${i * 0.1}s` }}>
+            <span className="whitespace-nowrap">{line.text}</span>
+            {line.status && <span className="text-green-400 font-bold">{line.status}</span>}
+          </div>
+        ))}
+        <div className="mt-4 h-px bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent" />
+      </div>
+    </div>
+  );
+}
 
 function AsteroidDistanceBar({ asteroid }: { asteroid: AsteroidDetail }) {
   const maxLD = 20;
@@ -107,6 +151,84 @@ function TelemetryPanel({ objectId }: { objectId: string }) {
   );
 }
 
+function JoveAudioPlayer() {
+  const [playingId, setPlayingId] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const handlePlay = useCallback((sample: typeof JOVE_AUDIO_SAMPLES[0]) => {
+    if (playingId === sample.id) {
+      audioRef.current?.pause();
+      setPlayingId(null);
+      return;
+    }
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    const audio = new Audio(sample.src);
+    audio.crossOrigin = "anonymous";
+    audioRef.current = audio;
+    audio.play().then(() => {
+      setPlayingId(sample.id);
+      playSound("dataStream");
+    }).catch(() => {
+      setPlayingId(null);
+    });
+    audio.onended = () => setPlayingId(null);
+    audio.onerror = () => setPlayingId(null);
+  }, [playingId]);
+
+  useEffect(() => {
+    return () => { audioRef.current?.pause(); };
+  }, []);
+
+  return (
+    <div className="glass-card p-3 space-y-2 !hover:transform-none border-purple-500/20">
+      <div className="flex items-center gap-2 mb-1">
+        <Volume2 className="w-3 h-3 text-purple-400" />
+        <h4 className="text-[11px] font-mono text-purple-400">SIGNAL PLAYBACK</h4>
+      </div>
+      {JOVE_AUDIO_SAMPLES.map((sample) => {
+        const isPlaying = playingId === sample.id;
+        return (
+          <button
+            key={sample.id}
+            onClick={() => handlePlay(sample)}
+            className={`w-full flex items-center gap-2 p-2 rounded-lg transition-colors cursor-pointer ${
+              isPlaying ? "bg-purple-400/15 border border-purple-400/30" : "hover:bg-white/5 border border-transparent"
+            }`}
+          >
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center ${isPlaying ? "bg-purple-400/20" : "bg-white/5"}`}>
+              {isPlaying ? <Pause className="w-3 h-3 text-purple-400" /> : <Play className="w-3 h-3 text-purple-400/60" />}
+            </div>
+            <div className="flex-1 text-left">
+              <p className="text-[11px] font-mono text-text-primary">{sample.label}</p>
+              <p className="text-[9px] font-mono text-text-secondary">{sample.source}</p>
+            </div>
+            {/* Waveform bars */}
+            {isPlaying && (
+              <div className="flex items-end gap-[2px] h-4">
+                {[...Array(5)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="w-[3px] bg-purple-400 rounded-full animate-waveform-bar"
+                    style={{
+                      animationDelay: `${i * 0.1}s`,
+                      height: "100%",
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+          </button>
+        );
+      })}
+      <p className="text-[8px] font-mono text-text-secondary/40 text-center mt-1">
+        NASA Radio JOVE — radiojove.gsfc.nasa.gov
+      </p>
+    </div>
+  );
+}
+
 const DSN_MISSIONS: Record<string, string[]> = {
   "Goldstone": ["Voyager 1", "MRO", "JWST"],
   "Canberra": ["Voyager 2", "New Horizons", "Juno"],
@@ -125,10 +247,19 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
   const [sceneSize, setSceneSize] = useState({ w: 500, h: 500 });
   const [hudObj, setHudObj] = useState<{ type: string; name: string; data: Record<string, string> } | null>(null);
   const [showTelemetry, setShowTelemetry] = useState(false);
+  const [booting, setBooting] = useState(true);
 
   useEffect(() => { if (mode !== "overview") setActiveTab(mode); }, [mode]);
 
-  // Responsive sizing — scene fills entire left area
+  // Boot sound + reset boot state on open
+  useEffect(() => {
+    if (open) {
+      setBooting(true);
+      playSound("boot");
+    }
+  }, [open]);
+
+  // Responsive sizing
   useEffect(() => {
     if (!open) return;
     function calcSize() {
@@ -148,6 +279,7 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
     setSelectedAsteroid(null);
     setHudObj(null);
     setShowTelemetry(false);
+    playSound("click");
     onClose();
   }, [onClose]);
 
@@ -158,15 +290,13 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
     return () => window.removeEventListener("keydown", handleEscape);
   }, [open, handleClose]);
 
-  // Focus helpers — send commands to JarvisScene
   const focusOn = useCallback((target: FocusTarget) => {
     jarvisRef.current?.focusOn(target);
   }, []);
 
-  // When tab changes, focus camera on relevant area
+  // When tab changes, focus camera + play sound
   useEffect(() => {
     if (!open) return;
-    // Small delay to let scene mount
     const t = setTimeout(() => {
       if (activeTab === "iss") focusOn({ type: "iss" });
       else if (activeTab === "dsn") focusOn({ type: "earth" });
@@ -177,9 +307,28 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
     return () => clearTimeout(t);
   }, [activeTab, open, focusOn]);
 
-  if (!open) return null;
+  const handleTabSwitch = useCallback((tab: SidebarTab) => {
+    setActiveTab(tab);
+    setSelectedAsteroid(null);
+    setHudObj(null);
+    playSound("click");
+  }, []);
 
-  const nextPassMin = Math.round(Math.random() * 40 + 15);
+  const handleSidebarItemClick = useCallback((target: FocusTarget) => {
+    focusOn(target);
+    playSound("ping");
+  }, [focusOn]);
+
+  const handleObjectSelect = useCallback((obj: { type: string; name: string; data: Record<string, string> } | null) => {
+    setHudObj(obj);
+    if (obj) playSound("dataStream");
+  }, []);
+
+  const handleBootDone = useCallback(() => {
+    setBooting(false);
+  }, []);
+
+  if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-[80] flex">
@@ -190,10 +339,13 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
         onMouseDown={(e) => e.stopPropagation()}
       />
 
-      {/* Content — scene + sidebar, no gap */}
+      {/* Content */}
       <div className="relative z-10 flex flex-col sm:flex-row w-full h-full">
-        {/* 3D Scene — fills all space left of sidebar */}
+        {/* 3D Scene */}
         <div className="flex-1 relative min-h-[45vh] sm:min-h-0 bg-[#030509]">
+          {/* Boot overlay */}
+          {booting && <BootOverlay onDone={handleBootDone} />}
+
           {/* Close */}
           <button
             onClick={handleClose}
@@ -209,7 +361,7 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
             <p className="text-[10px] font-mono text-cyan-400/50">// Jarvis Blueprint Mode</p>
           </div>
 
-          {/* HUD overlay on 3D scene */}
+          {/* HUD overlay */}
           {hudObj && hudObj.name && (
             <div className="absolute bottom-4 left-4 z-10 w-64">
               <BlueprintHUD obj={hudObj} />
@@ -226,11 +378,11 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
             width={sceneSize.w}
             height={sceneSize.h}
             issData={data.iss}
-            onSelectObject={setHudObj}
+            onSelectObject={handleObjectSelect}
           />
         </div>
 
-        {/* Sidebar — fixed width, flush against scene */}
+        {/* Sidebar */}
         <div className="w-full sm:w-[380px] shrink-0 bg-space-bg/95 backdrop-blur-xl border-l border-cyan-500/20 overflow-y-auto flex flex-col max-h-[55vh] sm:max-h-full">
           {/* Tabs */}
           <div className="flex border-b border-cyan-500/20 shrink-0">
@@ -239,7 +391,7 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
               return (
                 <button
                   key={tab.key}
-                  onClick={() => { setActiveTab(tab.key); setSelectedAsteroid(null); setHudObj(null); }}
+                  onClick={() => handleTabSwitch(tab.key)}
                   className={`flex-1 py-2.5 px-1 text-[10px] font-mono flex items-center justify-center gap-1 transition-colors cursor-pointer ${
                     activeTab === tab.key
                       ? "text-cyan-400 border-b-2 border-cyan-400 bg-cyan-400/5"
@@ -264,7 +416,7 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
                     <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse" />
                     <h3 className="text-xs font-semibold text-cyan-400 font-mono">ISS STATUS</h3>
                     <button
-                      onClick={() => focusOn({ type: "iss" })}
+                      onClick={() => handleSidebarItemClick({ type: "iss" })}
                       className="ml-auto text-[9px] font-mono text-cyan-400/50 hover:text-cyan-400 cursor-pointer"
                     >
                       FOCUS <ChevronRight className="w-2.5 h-2.5 inline" />
@@ -309,7 +461,7 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
                   {PROBES_DATASET.entries.map((probe) => (
                     <button
                       key={probe.id}
-                      onClick={() => { focusOn({ type: "probe", id: probe.id }); }}
+                      onClick={() => handleSidebarItemClick({ type: "probe", id: probe.id })}
                       className="w-full flex items-center justify-between text-[11px] p-1.5 rounded hover:bg-white/5 transition-colors cursor-pointer"
                     >
                       <div className="flex items-center gap-2">
@@ -339,7 +491,7 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
                           key={a.name}
                           onClick={() => {
                             setSelectedAsteroid(selectedAsteroid?.name === a.name ? null : a);
-                            if (neoData) focusOn({ type: "asteroid", id: neoData.id });
+                            if (neoData) handleSidebarItemClick({ type: "asteroid", id: neoData.id });
                           }}
                           className={`w-full text-left p-2 rounded-lg transition-colors cursor-pointer ${
                             selectedAsteroid?.name === a.name ? "bg-cyan-400/10 border border-cyan-400/30" : "hover:bg-white/5 border border-transparent"
@@ -377,8 +529,7 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
                   </div>
                 )}
 
-                {/* Quick focus: Sun overview */}
-                <button onClick={() => focusOn({ type: "sun" })} className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-amber-400/5 border border-amber-400/15 text-[10px] font-mono text-accent-amber/60 hover:bg-amber-400/10 transition-colors cursor-pointer">
+                <button onClick={() => { focusOn({ type: "sun" }); playSound("ping"); }} className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-amber-400/5 border border-amber-400/15 text-[10px] font-mono text-accent-amber/60 hover:bg-amber-400/10 transition-colors cursor-pointer">
                   Sunčev Sustav Overview
                 </button>
               </>
@@ -397,7 +548,7 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
                     return (
                       <button
                         key={s.name}
-                        onClick={() => focusOn({ type: "dsn", id: stationData?.id || `dsn-${s.name}` })}
+                        onClick={() => handleSidebarItemClick({ type: "dsn", id: stationData?.id || `dsn-${s.name}` })}
                         className="w-full p-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer text-left"
                       >
                         <div className="flex items-center gap-2">
@@ -425,7 +576,7 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
                       key={link.name}
                       onClick={() => {
                         const probe = PROBES_DATASET.entries.find((p) => p.name === link.name);
-                        if (probe) focusOn({ type: "probe", id: probe.id });
+                        if (probe) handleSidebarItemClick({ type: "probe", id: probe.id });
                       }}
                       className="w-full flex items-center justify-between text-[11px] p-1.5 rounded hover:bg-white/5 transition-colors cursor-pointer"
                     >
@@ -474,7 +625,6 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
                           <div><span className="text-text-secondary">G</span><p className="font-mono font-bold text-text-primary">{launch.telemetry.acceleration.toFixed(1)}</p></div>
                         </div>
                       )}
-                      {/* Timeline events */}
                       <div className="mt-1.5 flex flex-wrap gap-1">
                         {launch.events.map((evt) => (
                           <span key={evt.label} className="text-[8px] font-mono px-1 py-0.5 rounded bg-white/5 text-text-secondary">
@@ -523,7 +673,6 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
                         </div>
                         <p className="text-[9px] text-text-secondary/50">{entry.station}</p>
                       </div>
-                      {/* Intensity bar */}
                       <div className="mt-1 h-1 bg-white/5 rounded-full overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all"
@@ -536,6 +685,10 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
                     </div>
                   ))}
                 </div>
+
+                {/* JOVE Audio Player */}
+                <JoveAudioPlayer />
+
                 <div className="text-[9px] font-mono text-text-secondary/40 text-center">
                   radiojove.gsfc.nasa.gov — 20.1 MHz spectrogram data
                 </div>

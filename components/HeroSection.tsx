@@ -2,7 +2,7 @@
 
 import { useRef, useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowRight, MapPin, Clock, Satellite, Hand } from "lucide-react";
+import { ArrowRight, Clock, Satellite, Hand } from "lucide-react";
 import Globe from "./Globe";
 import type { GlobeHandle } from "./GlobeWrapper";
 import type { Article } from "@/lib/types";
@@ -11,19 +11,15 @@ import { formatDistanceToNow } from "@/lib/utils";
 
 interface HeroSectionProps {
   featured: Article;
-  geoArticles: Article[];
   latestPerCategory?: Article[];
 }
 
 export default function HeroSection({
   featured,
-  geoArticles,
   latestPerCategory = [],
 }: HeroSectionProps) {
-  const globeRef = useRef<GlobeHandle>(null);
   const globeContainerRef = useRef<HTMLDivElement>(null);
   const [globeSize, setGlobeSize] = useState(600);
-  const [activePin, setActivePin] = useState<string | null>(null);
   const [globeInteracting, setGlobeInteracting] = useState(false);
   const [showGrabHint, setShowGrabHint] = useState(false);
   const interactTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -40,7 +36,6 @@ export default function HeroSection({
     return () => window.removeEventListener("resize", updateSize);
   }, []);
 
-  // Show grab hint if user hasn't interacted yet this session
   useEffect(() => {
     const hasInteracted = sessionStorage.getItem("globe-interacted");
     if (!hasInteracted) {
@@ -64,46 +59,12 @@ export default function HeroSection({
     );
   };
 
-  // Group pins by rounded location (1 decimal) to avoid overlap
-  const pins = (() => {
-    const groups = new Map<string, typeof geoArticles>();
-    for (const a of geoArticles) {
-      const key = `${Math.round(a.geo.lat * 10) / 10},${Math.round(a.geo.lon * 10) / 10}`;
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(a);
-    }
-    return Array.from(groups.values()).map((group) => {
-      const first = group[0];
-      const labels = group.map((a) => ({
-        title: a.title,
-        id: a.id,
-        category: a.category,
-        color: CATEGORY_COLORS[a.category],
-      }));
-      return {
-        lat: first.geo.lat,
-        lng: first.geo.lon,
-        label: labels.length === 1 ? first.title : JSON.stringify(labels),
-        color: CATEGORY_COLORS[first.category],
-        id: first.id,
-      };
-    });
-  })();
-
-  const handlePinHover = (articleId: string) => {
-    setActivePin(articleId);
-    const article = geoArticles.find((a) => a.id === articleId);
-    if (article?.geo) {
-      globeRef.current?.focusOn(article.geo);
-    }
-  };
-
   const mobileGlobeHeight = 420;
 
   return (
     <section className="relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 py-8 lg:py-12 w-full">
-        {/* Globe — full-width, centered, focus of the page */}
+        {/* Globe — pure decorative, no pins */}
         <div
           ref={globeContainerRef}
           className="relative flex items-center justify-center cursor-grab active:cursor-grabbing mb-8"
@@ -119,8 +80,7 @@ export default function HeroSection({
             }`}
           >
             <Globe
-              ref={globeRef}
-              pins={pins}
+              pins={[]}
               width={globeSize}
               height={typeof window !== "undefined" && window.innerWidth < 768 ? mobileGlobeHeight : globeSize}
               autoRotate={true}
@@ -138,7 +98,6 @@ export default function HeroSection({
 
         {/* Featured article — centered below globe */}
         <div className="max-w-3xl mx-auto text-center space-y-5 mb-12">
-          {/* Terminal-style status line */}
           <div className="flex items-center justify-center gap-2 text-xs font-mono text-accent-cyan/70">
             <Satellite className="w-3 h-3 animate-pulse" />
             <span className="terminal-text">
@@ -166,15 +125,6 @@ export default function HeroSection({
               <Clock className="w-4 h-4" />
               <span>{formatDistanceToNow(featured.date)}</span>
             </div>
-            {featured.geo && (
-              <button
-                onClick={() => globeRef.current?.focusOn(featured.geo)}
-                className="flex items-center gap-1 hover:text-accent-cyan transition-colors group"
-              >
-                <MapPin className="w-4 h-4 group-hover:animate-bounce" />
-                <span>{featured.geo.name}</span>
-              </button>
-            )}
           </div>
 
           <Link
@@ -187,28 +137,18 @@ export default function HeroSection({
         </div>
 
         {/* Latest per category panel */}
-        <div>
-          <div className="glass-card p-4 space-y-3 !hover:transform-none">
-            <h3 className="text-xs font-mono text-accent-cyan/60 uppercase tracking-widest mb-3">
-              // Global Feed — Latest per Category
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
-              {(latestPerCategory.length > 0
-                ? latestPerCategory
-                : geoArticles
-              )
-                .slice(0, 8)
-                .map((article) => (
+        {latestPerCategory.length > 0 && (
+          <div>
+            <div className="glass-card p-4 space-y-3 !hover:transform-none">
+              <h3 className="text-xs font-mono text-accent-cyan/60 uppercase tracking-widest mb-3">
+                // Global Feed — Latest per Category
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+                {latestPerCategory.slice(0, 8).map((article) => (
                   <Link
                     key={article.id}
                     href={`/article/${article.category}/${article.id}`}
-                    className={`block p-3 rounded-lg transition-all duration-300 border border-transparent hover:border-accent-cyan/20 hover:bg-white/5 ${
-                      activePin === article.id
-                        ? "bg-white/8 border-accent-cyan/30"
-                        : ""
-                    }`}
-                    onMouseEnter={() => handlePinHover(article.id)}
-                    onMouseLeave={() => setActivePin(null)}
+                    className="block p-3 rounded-lg transition-all duration-300 border border-transparent hover:border-accent-cyan/20 hover:bg-white/5"
                   >
                     <div className="flex items-start gap-3">
                       <div
@@ -223,23 +163,15 @@ export default function HeroSection({
                         </p>
                         <div className="flex items-center gap-2 mt-1 text-xs text-text-secondary">
                           <span>{CATEGORY_LABELS[article.category]}</span>
-                          {article.geo && (
-                            <>
-                              <span className="opacity-30">|</span>
-                              <span className="flex items-center gap-1">
-                                <MapPin className="w-3 h-3" />
-                                {article.geo.name}
-                              </span>
-                            </>
-                          )}
                         </div>
                       </div>
                     </div>
                   </Link>
                 ))}
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Bottom gradient fade */}

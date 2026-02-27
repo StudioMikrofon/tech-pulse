@@ -9,6 +9,7 @@ import {
   NEO_DATASET,
   ISS_INCLINATION,
 } from "@/lib/space-tracker-data";
+import { generateWireframeTexture } from "@/lib/wireframe-texture";
 import type { ISSData } from "@/lib/space-pro-data";
 
 // ---------------------------------------------------------------------------
@@ -77,6 +78,29 @@ function createLabel(text: string, color: string, scale: number = 2): THREE.Spri
   return sprite;
 }
 
+/** Create a multi-line HUD label sprite for inline data */
+function createHUDLabel(lines: string[], color: string, scale: number = 2.5): THREE.Sprite {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 256;
+  const ctx = canvas.getContext("2d")!;
+  ctx.font = "bold 24px monospace";
+  ctx.fillStyle = color;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  const lineHeight = 30;
+  const startY = (256 - lines.length * lineHeight) / 2;
+  for (let i = 0; i < lines.length; i++) {
+    ctx.fillText(lines[i], 256, startY + i * lineHeight);
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.7, depthTest: false });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(scale, scale * 0.5, 1);
+  return sprite;
+}
+
 function createDashedRing(radius: number, color: number, opacity: number): THREE.Line {
   const pts: THREE.Vector3[] = [];
   for (let a = 0; a <= 360; a += 2) {
@@ -115,31 +139,29 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       animId: number;
       clock: THREE.Clock;
       paused: boolean;
-      // Targets for fly-to
       flyTarget: THREE.Vector3 | null;
       flyLook: THREE.Vector3 | null;
       flyDist: number;
-      // Object maps for selection
       objectMap: Map<string, THREE.Object3D>;
       selectedId: string | null;
-      // ISS mesh for live update
       issMesh: THREE.Mesh;
       issOrbitGroup: THREE.Group;
-      // Asteroid meshes for animation
-      asteroidAnims: { mesh: THREE.Mesh; speed: number; angle: number; dist: number; approachAngle: number }[];
-      // Planet meshes
+      asteroidAnims: { mesh: THREE.Mesh; speed: number; angle: number; dist: number; approachAngle: number; trail: THREE.Points }[];
       planetAnims: { mesh: THREE.Mesh; angle: number; speed: number; dist: number }[];
+      hudSprites: { sprite: THREE.Sprite; parent: THREE.Object3D }[];
+      scanBand: THREE.Mesh;
+      sunCorona: THREE.Mesh;
     } | null>(null);
 
     // Expose focusOn via ref
     useImperativeHandle(ref, () => ({
       focusOn: (target: FocusTarget) => {
         if (!internals.current) return;
-        const { objectMap, controls, camera } = internals.current;
+        const { objectMap, camera } = internals.current;
 
         if (target.type === "reset" || target.type === "earth") {
           internals.current.flyLook = EARTH_POS.clone();
-          internals.current.flyTarget = new THREE.Vector3(5, 4, 6);
+          internals.current.flyTarget = new THREE.Vector3(0, 3, 8);
           internals.current.flyDist = 8;
           internals.current.selectedId = null;
           onSelectObject?.(null);
@@ -152,16 +174,27 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
           const pos = new THREE.Vector3();
           obj.getWorldPosition(pos);
           internals.current.flyLook = pos.clone();
+
           // Camera offset based on type
           let dist = 6;
           if (target.type === "planet" || target.type === "sun") dist = 10;
           if (target.type === "probe") dist = 8;
-          if (target.type === "asteroid") dist = 5;
           if (target.type === "dsn") dist = 4;
+
+          // ASTEROID PERSPECTIVE: camera BEHIND asteroid, looking TOWARD Earth
+          if (target.type === "asteroid") {
+            dist = 5;
+            const dirToEarth = EARTH_POS.clone().sub(pos).normalize();
+            // Camera behind asteroid (opposite side from Earth)
+            internals.current.flyTarget = pos.clone().sub(dirToEarth.multiplyScalar(dist));
+            internals.current.flyTarget.y = Math.max(internals.current.flyTarget.y, pos.y + dist * 0.2);
+          } else {
+            const dir = camera.position.clone().sub(pos).normalize();
+            internals.current.flyTarget = pos.clone().add(dir.multiplyScalar(dist));
+            internals.current.flyTarget.y = Math.max(internals.current.flyTarget.y, pos.y + dist * 0.3);
+          }
+
           internals.current.flyDist = dist;
-          const dir = camera.position.clone().sub(pos).normalize();
-          internals.current.flyTarget = pos.clone().add(dir.multiplyScalar(dist));
-          internals.current.flyTarget.y = Math.max(internals.current.flyTarget.y, pos.y + dist * 0.3);
           internals.current.selectedId = key;
         }
       },
@@ -185,25 +218,29 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       // Scene
       const scene = new THREE.Scene();
 
-      // Camera
+      // Camera — default view toward Earth (front-center)
       const camera = new THREE.PerspectiveCamera(50, width / height, 0.05, 500);
-      camera.position.set(5, 4, 6);
+      camera.position.set(0, 3, 8);
 
-      // Controls
+      // Controls — easier rotation
       const controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
-      controls.dampingFactor = 0.08;
+      controls.dampingFactor = 0.12;
       controls.minDistance = 1;
       controls.maxDistance = 150;
       controls.zoomSpeed = 2.5;
-      controls.rotateSpeed = 0.8;
+      controls.rotateSpeed = 1.5;
       controls.target.copy(EARTH_POS);
 
       // Lighting
-      scene.add(new THREE.AmbientLight(0x334466, 0.8));
+      scene.add(new THREE.AmbientLight(0x334466, 1.2));
       const sunLight = new THREE.PointLight(0xffffff, 2, 300);
       sunLight.position.copy(SUN_POS);
       scene.add(sunLight);
+      // Fill light from opposite side
+      const fillLight = new THREE.PointLight(0x0066ff, 0.5, 100);
+      fillLight.position.set(30, 10, 20);
+      scene.add(fillLight);
 
       // Starfield
       const starCount = 3000;
@@ -222,6 +259,7 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
 
       // Object registry
       const objectMap = new Map<string, THREE.Object3D>();
+      const hudSprites: { sprite: THREE.Sprite; parent: THREE.Object3D }[] = [];
 
       // ===== EARTH =====
       // Solid core (dark)
@@ -232,8 +270,26 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       earthCore.position.copy(EARTH_POS);
       scene.add(earthCore);
 
-      // Wireframe sphere
-      const earthWire = createWireframeSphere(EARTH_RADIUS, 0x00d4ff, 0.2, 36);
+      // Continent texture layer from wireframe-texture.ts
+      const continentDataUrl = generateWireframeTexture(0.2, 0.15);
+      const continentImg = new Image();
+      continentImg.src = continentDataUrl;
+      continentImg.onload = () => {
+        const continentTex = new THREE.Texture(continentImg);
+        continentTex.needsUpdate = true;
+        const continentMesh = new THREE.Mesh(
+          new THREE.SphereGeometry(EARTH_RADIUS, 48, 48),
+          new THREE.MeshBasicMaterial({ map: continentTex, transparent: true, opacity: 0.9 }),
+        );
+        continentMesh.position.copy(EARTH_POS);
+        scene.add(continentMesh);
+        // Rotate with Earth
+        earthCore.add(continentMesh);
+        continentMesh.position.set(0, 0, 0);
+      };
+
+      // Wireframe sphere on top (lower opacity to show continents beneath)
+      const earthWire = createWireframeSphere(EARTH_RADIUS * 1.005, 0x00d4ff, 0.1, 36);
       earthWire.position.copy(EARTH_POS);
       scene.add(earthWire);
       objectMap.set("earth", earthWire);
@@ -245,6 +301,18 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       atmosMesh.position.copy(EARTH_POS);
       scene.add(atmosMesh);
 
+      // Blueprint scan line sphere
+      const scanGeo = new THREE.SphereGeometry(EARTH_RADIUS * 1.03, 48, 48);
+      const scanCanvas = document.createElement("canvas");
+      scanCanvas.width = 512;
+      scanCanvas.height = 256;
+      const scanCtx = scanCanvas.getContext("2d")!;
+      const scanTex = new THREE.CanvasTexture(scanCanvas);
+      const scanMat = new THREE.MeshBasicMaterial({ map: scanTex, transparent: true, opacity: 0.3, depthWrite: false });
+      const scanBand = new THREE.Mesh(scanGeo, scanMat);
+      scanBand.position.copy(EARTH_POS);
+      scene.add(scanBand);
+
       // Earth label
       const earthLabel = createLabel("EARTH", "#00D4FF", 2);
       earthLabel.position.set(EARTH_POS.x, EARTH_POS.y + EARTH_RADIUS + 0.8, EARTH_POS.z);
@@ -255,7 +323,6 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         const ring = createDashedRing(ld * LD_SCALE, 0x00d4ff, 0.06);
         ring.position.copy(EARTH_POS);
         scene.add(ring);
-        // LD label
         const lbl = createLabel(`${ld} LD`, "#00D4FF", 1.2);
         lbl.material.opacity = 0.3;
         lbl.position.set(EARTH_POS.x + ld * LD_SCALE + 0.5, EARTH_POS.y + 0.3, EARTH_POS.z);
@@ -272,7 +339,6 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         dot.position.copy(pos);
         scene.add(dot);
         objectMap.set(station.id, dot);
-        // Label
         const lbl = createLabel(station.name, "#34D399", 1);
         lbl.position.copy(pos).add(new THREE.Vector3(0, 0.3, 0));
         scene.add(lbl);
@@ -285,7 +351,6 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       scene.add(issMesh);
       objectMap.set("iss", issMesh);
 
-      // ISS orbit ring (inclined)
       const issOrbitGroup = new THREE.Group();
       const issOrbitRing = createDashedRing(EARTH_RADIUS + 0.5, 0x00d4ff, 0.15);
       issOrbitGroup.add(issOrbitRing);
@@ -293,24 +358,26 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       issOrbitGroup.position.copy(EARTH_POS);
       scene.add(issOrbitGroup);
 
-      // ISS label
       const issLabel = createLabel("ISS", "#00D4FF", 1.2);
       issLabel.position.y = 0.3;
       issMesh.add(issLabel);
 
-      // ===== ASTEROIDS (near Earth zone) =====
-      const asteroidAnims: typeof internals.current extends null ? never : NonNullable<typeof internals.current>["asteroidAnims"] = [];
+      // ===== ASTEROIDS (near Earth zone) — more realistic =====
+      const asteroidAnims: NonNullable<typeof internals.current>["asteroidAnims"] = [];
       NEO_DATASET.entries.forEach((asteroid) => {
         const scaledDist = asteroid.distanceLD * LD_SCALE;
         const angle = (asteroid.approachAngle * Math.PI) / 180;
         const size = Math.max(0.08, Math.min(asteroid.diameterM / 300, 0.35));
 
-        const aGeo = new THREE.IcosahedronGeometry(size, 0);
-        const aMat = new THREE.MeshBasicMaterial({
+        // More detailed icosahedron + MeshStandardMaterial
+        const aGeo = new THREE.IcosahedronGeometry(size, 1);
+        const aMat = new THREE.MeshStandardMaterial({
           color: asteroid.hazardous ? 0xef4444 : 0xffcf6e,
-          wireframe: true,
-          transparent: true,
-          opacity: 0.8,
+          roughness: 0.7,
+          metalness: 0.3,
+          emissive: asteroid.hazardous ? 0x991111 : 0x664400,
+          emissiveIntensity: 0.4,
+          wireframe: false,
         });
         const aMesh = new THREE.Mesh(aGeo, aMat);
         aMesh.position.set(
@@ -320,6 +387,32 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         );
         scene.add(aMesh);
         objectMap.set(asteroid.id, aMesh);
+
+        // Wireframe overlay for Jarvis feel
+        const aWireGeo = new THREE.IcosahedronGeometry(size * 1.05, 1);
+        const aWireMat = new THREE.MeshBasicMaterial({
+          color: asteroid.hazardous ? 0xef4444 : 0xffcf6e,
+          wireframe: true,
+          transparent: true,
+          opacity: 0.3,
+        });
+        aMesh.add(new THREE.Mesh(aWireGeo, aWireMat));
+
+        // Particle trail (3 fading dots behind)
+        const trailPositions = new Float32Array(9); // 3 points x 3
+        const trailSizes = new Float32Array([3, 2, 1]);
+        const trailGeo = new THREE.BufferGeometry();
+        trailGeo.setAttribute("position", new THREE.BufferAttribute(trailPositions, 3));
+        trailGeo.setAttribute("size", new THREE.BufferAttribute(trailSizes, 1));
+        const trailMat = new THREE.PointsMaterial({
+          color: asteroid.hazardous ? 0xef4444 : 0xffcf6e,
+          size: 0.04,
+          transparent: true,
+          opacity: 0.4,
+          sizeAttenuation: true,
+        });
+        const trail = new THREE.Points(trailGeo, trailMat);
+        scene.add(trail);
 
         // Trajectory line
         const trajPts: THREE.Vector3[] = [];
@@ -344,47 +437,67 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         trajLine.computeLineDistances();
         scene.add(trajLine);
 
-        // Label
+        // Name label
         const lbl = createLabel(asteroid.name, asteroid.hazardous ? "#EF4444" : "#FFCF6E", 1.2);
         lbl.position.y = size + 0.4;
         aMesh.add(lbl);
 
+        // Inline HUD label: velocity + distance
+        const hudLabel = createHUDLabel(
+          [`${(asteroid.speedKmH / 1000).toFixed(1)}k km/h`, `${asteroid.distanceLD} LD`],
+          asteroid.hazardous ? "#EF4444" : "#FFCF6E",
+          1.8,
+        );
+        hudLabel.position.y = size + 0.9;
+        aMesh.add(hudLabel);
+        hudSprites.push({ sprite: hudLabel, parent: aMesh });
+
         asteroidAnims.push({
           mesh: aMesh, speed: asteroid.speedKmH * 0.000001,
           angle, dist: scaledDist, approachAngle: asteroid.approachAngle,
+          trail,
         });
       });
 
-      // ===== SUN =====
+      // ===== SUN — animated pulsing corona =====
       const sunGeo = new THREE.SphereGeometry(3, 24, 24);
-      const sunMat = new THREE.MeshBasicMaterial({ color: 0xffdd44 });
+      const sunMat = new THREE.MeshStandardMaterial({
+        color: 0xffdd44,
+        emissive: 0xffaa00,
+        emissiveIntensity: 1.5,
+        roughness: 1,
+        metalness: 0,
+      });
       const sunMesh = new THREE.Mesh(sunGeo, sunMat);
       sunMesh.position.copy(SUN_POS);
       scene.add(sunMesh);
       objectMap.set("sun", sunMesh);
-      // Sun glow
-      const sunGlow = new THREE.Mesh(
+      // Sun corona (pulsing)
+      const sunCorona = new THREE.Mesh(
         new THREE.SphereGeometry(5, 24, 24),
         new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.08 }),
       );
-      sunGlow.position.copy(SUN_POS);
-      scene.add(sunGlow);
+      sunCorona.position.copy(SUN_POS);
+      scene.add(sunCorona);
       const sunLabel = createLabel("SUN", "#FFDD44", 3);
       sunLabel.position.set(SUN_POS.x, SUN_POS.y + 5, SUN_POS.z);
       scene.add(sunLabel);
 
-      // ===== PLANETS (orbiting Sun) =====
+      // ===== PLANETS (orbiting Sun) — MeshStandardMaterial + wireframe overlay =====
       const planetAnims: { mesh: THREE.Mesh; angle: number; speed: number; dist: number }[] = [];
       PLANET_DATA.forEach((p) => {
-        // Orbit ring around Sun
         const orbitRing = createDashedRing(p.dist, 0x00d4ff, 0.06);
         orbitRing.position.copy(SUN_POS);
         scene.add(orbitRing);
 
-        // Planet wireframe sphere
+        // Solid lit planet
         const pGeo = new THREE.SphereGeometry(p.radius, 16, 16);
-        const pMat = new THREE.MeshBasicMaterial({
-          color: new THREE.Color(p.color), wireframe: true, transparent: true, opacity: 0.7,
+        const pMat = new THREE.MeshStandardMaterial({
+          color: new THREE.Color(p.color),
+          roughness: 0.6,
+          metalness: 0.2,
+          emissive: new THREE.Color(p.color),
+          emissiveIntensity: 0.15,
         });
         const pMesh = new THREE.Mesh(pGeo, pMat);
         const startAngle = Math.random() * Math.PI * 2;
@@ -396,10 +509,12 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         scene.add(pMesh);
         objectMap.set(`planet-${p.name.toLowerCase()}`, pMesh);
 
-        // Solid core
-        const coreGeo = new THREE.SphereGeometry(p.radius * 0.85, 16, 16);
-        const coreMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(p.color), transparent: true, opacity: 0.15 });
-        pMesh.add(new THREE.Mesh(coreGeo, coreMat));
+        // Wireframe overlay for Jarvis feel
+        const wireOverlay = new THREE.Mesh(
+          new THREE.SphereGeometry(p.radius * 1.05, 16, 16),
+          new THREE.MeshBasicMaterial({ color: new THREE.Color(p.color), wireframe: true, transparent: true, opacity: 0.25 }),
+        );
+        pMesh.add(wireOverlay);
 
         // Ring for Saturn
         if (p.ring) {
@@ -420,21 +535,50 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         planetAnims.push({ mesh: pMesh, angle: startAngle, speed: p.speed, dist: p.dist });
       });
 
-      // ===== PROBES (in deep space, scaled positions) =====
+      // ===== PROBES (compound shape: box body + solar panels) =====
       PROBES_DATASET.entries.forEach((probe) => {
         const scaledDist = probe.distanceAU > 10
           ? 60 + Math.log10(probe.distanceAU / 10) * 30
-          : SUN_POS.length() + (probe.distanceAU / 5.5) * 70; // relative to Sun-Earth distance
+          : SUN_POS.length() + (probe.distanceAU / 5.5) * 70;
         const angle = (probe.positionAngle * Math.PI) / 180;
         const px = SUN_POS.x + Math.cos(angle) * scaledDist;
         const pz = SUN_POS.z + Math.sin(angle) * scaledDist;
 
-        const probeGeo = new THREE.OctahedronGeometry(0.15, 0);
-        const probeMat = new THREE.MeshBasicMaterial({ color: 0x00d4ff, wireframe: true });
-        const probeMesh = new THREE.Mesh(probeGeo, probeMat);
-        probeMesh.position.set(px, 0.2, pz);
-        scene.add(probeMesh);
-        objectMap.set(probe.id, probeMesh);
+        // Compound probe shape
+        const probeGroup = new THREE.Group();
+        // Body
+        const bodyGeo = new THREE.BoxGeometry(0.12, 0.08, 0.12);
+        const bodyMat = new THREE.MeshStandardMaterial({
+          color: 0x00d4ff,
+          emissive: 0x006688,
+          emissiveIntensity: 0.6,
+          roughness: 0.4,
+          metalness: 0.6,
+        });
+        probeGroup.add(new THREE.Mesh(bodyGeo, bodyMat));
+
+        // Solar panels (two flat quads)
+        const panelGeo = new THREE.PlaneGeometry(0.25, 0.08);
+        const panelMat = new THREE.MeshStandardMaterial({
+          color: 0x2288cc,
+          emissive: 0x00aaff,
+          emissiveIntensity: 0.3,
+          side: THREE.DoubleSide,
+          roughness: 0.3,
+          metalness: 0.5,
+        });
+        const panelL = new THREE.Mesh(panelGeo, panelMat);
+        panelL.position.set(-0.19, 0, 0);
+        panelL.rotation.y = Math.PI / 2;
+        probeGroup.add(panelL);
+        const panelR = new THREE.Mesh(panelGeo, panelMat);
+        panelR.position.set(0.19, 0, 0);
+        panelR.rotation.y = Math.PI / 2;
+        probeGroup.add(panelR);
+
+        probeGroup.position.set(px, 0.2, pz);
+        scene.add(probeGroup);
+        objectMap.set(probe.id, probeGroup);
 
         // Trajectory from Sun
         const trajPts: THREE.Vector3[] = [];
@@ -456,16 +600,26 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         trajLine.computeLineDistances();
         scene.add(trajLine);
 
-        // Label
+        // Name label
         const lbl = createLabel(probe.name, "#00D4FF", 1.5);
         lbl.position.y = 0.6;
-        probeMesh.add(lbl);
+        probeGroup.add(lbl);
+
+        // Inline HUD: mission name + distance
+        const hudLabel = createHUDLabel(
+          [probe.name, probe.distanceFromSun],
+          "#00D4FF",
+          2.0,
+        );
+        hudLabel.position.y = 1.1;
+        probeGroup.add(hudLabel);
+        hudSprites.push({ sprite: hudLabel, parent: probeGroup });
       });
 
       // ===== GRID PLANE (blueprint feel) =====
       const gridHelper = new THREE.GridHelper(200, 100, 0x00d4ff, 0x00d4ff);
-      gridHelper.material.transparent = true;
-      gridHelper.material.opacity = 0.03;
+      (gridHelper.material as THREE.Material).transparent = true;
+      (gridHelper.material as THREE.Material).opacity = 0.03;
       gridHelper.position.y = -0.5;
       scene.add(gridHelper);
 
@@ -483,6 +637,9 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         objectMap, selectedId: null as string | null,
         issMesh, issOrbitGroup,
         asteroidAnims, planetAnims,
+        hudSprites,
+        scanBand,
+        sunCorona,
       };
       internals.current = state;
 
@@ -496,80 +653,103 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         mouseVec.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
         raycaster.setFromCamera(mouseVec, camera);
 
-        const clickables = Array.from(objectMap.values()).filter((o) => o instanceof THREE.Mesh) as THREE.Mesh[];
-        const intersects = raycaster.intersectObjects(clickables, false);
+        const clickables = Array.from(objectMap.values()).filter((o) => o instanceof THREE.Mesh || o instanceof THREE.Group);
+        const intersects = raycaster.intersectObjects(clickables, true);
         if (intersects.length > 0) {
-          const hit = intersects[0].object;
-          // Find the id
-          for (const [id, obj] of objectMap.entries()) {
-            if (obj === hit) {
-              // Determine type and build HUD data
-              let type = "object";
-              const data: Record<string, string> = {};
-              if (id.startsWith("dsn-")) {
-                type = "DSN";
-                const station = DSN_GROUND_STATIONS.find((s) => s.id === id);
-                if (station) {
-                  data["Lokacija"] = station.meta.country as string;
-                  data["Antena"] = station.meta.primaryDish as string;
-                  data["Misije"] = station.meta.activeMissions as string;
-                }
-              } else if (id === "iss") {
-                type = "ISS";
-                data["Visina"] = `${issData.altitude} km`;
-                data["Brzina"] = `${issData.speed.toLocaleString()} km/h`;
-                data["Pozicija"] = `${issData.lat.toFixed(2)}°, ${issData.lon.toFixed(2)}°`;
-              } else if (id.startsWith("planet-")) {
-                type = "Planet";
-                const pName = id.replace("planet-", "");
-                const pData = PLANET_DATA.find((p) => p.name.toLowerCase() === pName);
-                if (pData) {
-                  data["Boja"] = pData.color;
-                  data["Orbit radius"] = `${pData.dist} AU (scaled)`;
-                }
-              } else if (id === "sun") {
-                type = "Zvijezda";
-                data["Tip"] = "G2V Main Sequence";
-                data["Temperatura"] = "5,778 K";
-                data["Masa"] = "1.989 × 10³⁰ kg";
-              } else {
-                // Asteroid or probe
-                const neo = NEO_DATASET.entries.find((a) => a.id === id);
-                if (neo) {
-                  type = "Asteroid";
-                  data["Udaljenost"] = `${neo.distanceLD} LD (${neo.distanceKm.toLocaleString()} km)`;
-                  data["Promjer"] = `${neo.diameterM}m`;
-                  data["Brzina"] = `${neo.speedKmH.toLocaleString()} km/h`;
-                  data["Opasan"] = neo.hazardous ? "DA" : "NE";
-                  data["Najbliži prolaz"] = new Date(neo.closestApproach).toLocaleString();
-                }
-                const probe = PROBES_DATASET.entries.find((p) => p.id === id);
-                if (probe) {
-                  type = "Sonda";
-                  data["Udaljenost"] = probe.distanceFromSun;
-                  data["Brzina"] = probe.speed;
-                  data["Misija"] = probe.mission;
-                  data["Lansiranje"] = String(probe.launchYear);
-                  data["Status"] = probe.status;
-                }
+          // Find root object in objectMap
+          let hitObj = intersects[0].object;
+          let foundId: string | null = null;
+          // Walk up parent chain to find mapped object
+          while (hitObj) {
+            for (const [id, obj] of objectMap.entries()) {
+              if (obj === hitObj) { foundId = id; break; }
+            }
+            if (foundId) break;
+            hitObj = hitObj.parent as THREE.Object3D;
+          }
+
+          if (foundId) {
+            const id = foundId;
+            let type = "object";
+            const data: Record<string, string> = {};
+            if (id.startsWith("dsn-")) {
+              type = "DSN";
+              const station = DSN_GROUND_STATIONS.find((s) => s.id === id);
+              if (station) {
+                data["Lokacija"] = station.meta.country as string;
+                data["Antena"] = station.meta.primaryDish as string;
+                data["Misije"] = station.meta.activeMissions as string;
               }
+            } else if (id === "iss") {
+              type = "ISS";
+              data["Visina"] = `${issData.altitude} km`;
+              data["Brzina"] = `${issData.speed.toLocaleString()} km/h`;
+              data["Pozicija"] = `${issData.lat.toFixed(2)}°, ${issData.lon.toFixed(2)}°`;
+            } else if (id.startsWith("planet-")) {
+              type = "Planet";
+              const pName = id.replace("planet-", "");
+              const pData = PLANET_DATA.find((p) => p.name.toLowerCase() === pName);
+              if (pData) {
+                data["Boja"] = pData.color;
+                data["Orbit radius"] = `${pData.dist} AU (scaled)`;
+              }
+            } else if (id === "sun") {
+              type = "Zvijezda";
+              data["Tip"] = "G2V Main Sequence";
+              data["Temperatura"] = "5,778 K";
+              data["Masa"] = "1.989 × 10³⁰ kg";
+            } else {
+              const neo = NEO_DATASET.entries.find((a) => a.id === id);
+              if (neo) {
+                type = "Asteroid";
+                data["Udaljenost"] = `${neo.distanceLD} LD (${neo.distanceKm.toLocaleString()} km)`;
+                data["Promjer"] = `${neo.diameterM}m`;
+                data["Brzina"] = `${neo.speedKmH.toLocaleString()} km/h`;
+                data["Opasan"] = neo.hazardous ? "DA" : "NE";
+                data["Najbliži prolaz"] = new Date(neo.closestApproach).toLocaleString();
+              }
+              const probe = PROBES_DATASET.entries.find((p) => p.id === id);
+              if (probe) {
+                type = "Sonda";
+                data["Udaljenost"] = probe.distanceFromSun;
+                data["Brzina"] = probe.speed;
+                data["Misija"] = probe.mission;
+                data["Lansiranje"] = String(probe.launchYear);
+                data["Status"] = probe.status;
+              }
+            }
 
-              onSelectObject?.({ type, name: id.startsWith("planet-") ? id.replace("planet-", "").charAt(0).toUpperCase() + id.replace("planet-", "").slice(1) : objectMap.get(id) ? (DSN_GROUND_STATIONS.find(s => s.id === id)?.name || NEO_DATASET.entries.find(a => a.id === id)?.name || PROBES_DATASET.entries.find(p => p.id === id)?.name || id.toUpperCase()) : id, data });
+            const displayName = id.startsWith("planet-")
+              ? id.replace("planet-", "").charAt(0).toUpperCase() + id.replace("planet-", "").slice(1)
+              : (DSN_GROUND_STATIONS.find(s => s.id === id)?.name
+                || NEO_DATASET.entries.find(a => a.id === id)?.name
+                || PROBES_DATASET.entries.find(p => p.id === id)?.name
+                || id.toUpperCase());
 
-              // Fly to
-              const pos = new THREE.Vector3();
-              hit.getWorldPosition(pos);
-              state.flyLook = pos.clone();
-              let dist = 5;
-              if (type === "Planet" || type === "Zvijezda") dist = 8;
-              if (type === "Sonda") dist = 6;
-              state.flyDist = dist;
+            onSelectObject?.({ type, name: displayName, data });
+
+            // Fly to
+            const pos = new THREE.Vector3();
+            const obj = objectMap.get(id)!;
+            obj.getWorldPosition(pos);
+            state.flyLook = pos.clone();
+            let dist = 5;
+            if (type === "Planet" || type === "Zvijezda") dist = 8;
+            if (type === "Sonda") dist = 6;
+
+            // Asteroid perspective: camera behind, looking toward Earth
+            if (type === "Asteroid") {
+              const dirToEarth = EARTH_POS.clone().sub(pos).normalize();
+              state.flyTarget = pos.clone().sub(dirToEarth.multiplyScalar(dist));
+              state.flyTarget.y = Math.max(state.flyTarget.y, pos.y + dist * 0.2);
+            } else {
               const dir = camera.position.clone().sub(pos).normalize();
               state.flyTarget = pos.clone().add(dir.multiplyScalar(dist));
               state.flyTarget.y = Math.max(state.flyTarget.y, pos.y + dist * 0.25);
-              state.selectedId = id;
-              break;
             }
+
+            state.flyDist = dist;
+            state.selectedId = id;
           }
           idleTime = 0;
         }
@@ -584,6 +764,9 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       renderer.domElement.addEventListener("pointerup", onInteractEnd);
       renderer.domElement.addEventListener("wheel", () => { idleTime = 0; });
 
+      // Trail position history for asteroids
+      const trailHistory: THREE.Vector3[][] = asteroidAnims.map(() => []);
+
       function animate() {
         animId = requestAnimationFrame(animate);
         if (paused) return;
@@ -596,7 +779,6 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         const issOrbitR = EARTH_RADIUS + 0.5;
         const issX = Math.cos(issAngle) * issOrbitR;
         const issZ = Math.sin(issAngle) * issOrbitR;
-        // Apply inclination rotation
         const incRad = (ISS_INCLINATION * Math.PI) / 180;
         issMesh.position.set(
           EARTH_POS.x + issX,
@@ -605,20 +787,48 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         );
         issMesh.rotation.y += delta * 2;
 
-        // Rotate Earth wireframe slowly
+        // Rotate Earth
         earthWire.rotation.y += delta * 0.05;
         earthCore.rotation.y += delta * 0.05;
+        scanBand.rotation.y += delta * 0.05;
 
-        // Animate asteroids — slow movement along approach angle
-        for (const aa of asteroidAnims) {
+        // Animate scan band texture
+        scanCtx.clearRect(0, 0, 512, 256);
+        const bandY = ((elapsed * 30) % 256);
+        const gradient = scanCtx.createLinearGradient(0, bandY - 20, 0, bandY + 20);
+        gradient.addColorStop(0, "rgba(0, 212, 255, 0)");
+        gradient.addColorStop(0.5, "rgba(0, 212, 255, 0.6)");
+        gradient.addColorStop(1, "rgba(0, 212, 255, 0)");
+        scanCtx.fillStyle = gradient;
+        scanCtx.fillRect(0, bandY - 20, 512, 40);
+        scanTex.needsUpdate = true;
+
+        // Animate asteroids
+        for (let ai = 0; ai < asteroidAnims.length; ai++) {
+          const aa = asteroidAnims[ai];
           aa.angle += aa.speed * delta;
           const d = aa.dist + Math.sin(elapsed * 0.1 + aa.approachAngle) * 0.3;
           const approachRad = (aa.approachAngle * Math.PI) / 180;
-          aa.mesh.position.set(
-            EARTH_POS.x + Math.cos(approachRad + aa.angle * 0.01) * d,
-            EARTH_POS.y + Math.sin(elapsed * 0.3 + aa.approachAngle) * 0.2,
-            EARTH_POS.z + Math.sin(approachRad + aa.angle * 0.01) * d,
-          );
+          const newX = EARTH_POS.x + Math.cos(approachRad + aa.angle * 0.01) * d;
+          const newY = EARTH_POS.y + Math.sin(elapsed * 0.3 + aa.approachAngle) * 0.2;
+          const newZ = EARTH_POS.z + Math.sin(approachRad + aa.angle * 0.01) * d;
+
+          // Update trail history
+          const hist = trailHistory[ai];
+          hist.unshift(new THREE.Vector3(newX, newY, newZ));
+          if (hist.length > 4) hist.length = 4;
+
+          // Update trail points
+          const trailPositions = aa.trail.geometry.attributes.position.array as Float32Array;
+          for (let t = 0; t < 3; t++) {
+            const src = hist[Math.min(t + 1, hist.length - 1)];
+            trailPositions[t * 3] = src.x;
+            trailPositions[t * 3 + 1] = src.y;
+            trailPositions[t * 3 + 2] = src.z;
+          }
+          aa.trail.geometry.attributes.position.needsUpdate = true;
+
+          aa.mesh.position.set(newX, newY, newZ);
           aa.mesh.rotation.x += delta * 0.5;
           aa.mesh.rotation.z += delta * 0.3;
         }
@@ -634,10 +844,26 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
           pa.mesh.rotation.y += delta * 0.3;
         }
 
+        // Pulse sun corona
+        const coronaOpacity = 0.07 + Math.sin(elapsed * 1.5) * 0.025;
+        (sunCorona.material as THREE.MeshBasicMaterial).opacity = coronaOpacity;
+        const coronaScale = 1 + Math.sin(elapsed * 0.8) * 0.05;
+        sunCorona.scale.setScalar(coronaScale);
+
+        // Fade HUD labels by camera distance
+        for (const { sprite, parent } of hudSprites) {
+          const parentPos = new THREE.Vector3();
+          parent.getWorldPosition(parentPos);
+          const camDist = camera.position.distanceTo(parentPos);
+          const opacity = Math.max(0.0, Math.min(1.0, 1.0 - (camDist - 3) / 20));
+          (sprite.material as THREE.SpriteMaterial).opacity = opacity;
+          sprite.visible = opacity > 0.05;
+        }
+
         // Pulse selected object
         if (state.selectedId) {
           const sel = objectMap.get(state.selectedId);
-          if (sel && sel instanceof THREE.Mesh) {
+          if (sel) {
             const s = 1 + Math.sin(elapsed * 5) * 0.15;
             sel.scale.setScalar(s);
           }
@@ -663,11 +889,9 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
           if (idleTime > 3) {
             const autoSpeed = Math.min((idleTime - 3) * 0.003, 0.008);
             controls.target.x += Math.sin(elapsed * 0.02) * autoSpeed;
-            // Very subtle orbit around target
-            const camAngle = elapsed * 0.015;
-            const camDist = camera.position.distanceTo(controls.target);
             const camDir = camera.position.clone().sub(controls.target).normalize();
             camDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), autoSpeed * 0.3);
+            const camDist = camera.position.distanceTo(controls.target);
             camera.position.copy(controls.target).add(camDir.multiplyScalar(camDist));
           }
         }
