@@ -1,6 +1,9 @@
 /**
  * Generates a wireframe globe texture (Jarvis blueprint style) with continent outlines.
  * Returns a data URL for use as globeImageUrl.
+ *
+ * @param brightness - brightness boost 0-1 (default 0.15 = +15%)
+ * @param contrast  - contrast boost 0-1 (default 0.10 = +10%)
  */
 
 // Simplified continent outlines as [lat, lon] pairs
@@ -75,7 +78,10 @@ function latLonToXY(lat: number, lon: number, w: number, h: number): [number, nu
   return [x, y];
 }
 
-export function generateWireframeTexture(): string {
+export function generateWireframeTexture(
+  brightness: number = 0.15,
+  contrast: number = 0.10,
+): string {
   const W = 2048;
   const H = 1024;
   const canvas = document.createElement("canvas");
@@ -83,15 +89,22 @@ export function generateWireframeTexture(): string {
   canvas.height = H;
   const ctx = canvas.getContext("2d")!;
 
-  // Dark background
-  ctx.fillStyle = "#050710";
+  // Brightness/contrast multipliers
+  const bMul = 1 + brightness; // e.g. 1.15
+  const cMul = 1 + contrast;   // e.g. 1.10
+
+  // Helper: apply brightness to an alpha value
+  const a = (base: number) => Math.min(base * bMul * cMul, 1);
+
+  // Dark background — slightly brighter base
+  const bgBright = Math.min(5 + Math.round(brightness * 20), 20);
+  ctx.fillStyle = `rgb(${bgBright}, ${bgBright + 2}, ${bgBright + 6})`;
   ctx.fillRect(0, 0, W, H);
 
-  // Grid lines every 15 degrees
-  ctx.strokeStyle = "rgba(0, 212, 255, 0.18)";
+  // Grid lines every 15 degrees — brighter
+  ctx.strokeStyle = `rgba(0, 212, 255, ${a(0.22).toFixed(3)})`;
   ctx.lineWidth = 1;
 
-  // Longitude lines (vertical)
   for (let lon = 0; lon <= 360; lon += 15) {
     const x = (lon / 360) * W;
     ctx.beginPath();
@@ -100,7 +113,6 @@ export function generateWireframeTexture(): string {
     ctx.stroke();
   }
 
-  // Latitude lines (horizontal)
   for (let lat = 0; lat <= 180; lat += 15) {
     const y = (lat / 180) * H;
     ctx.beginPath();
@@ -110,25 +122,39 @@ export function generateWireframeTexture(): string {
   }
 
   // Brighter equator and prime meridian
-  ctx.strokeStyle = "rgba(0, 212, 255, 0.4)";
+  ctx.strokeStyle = `rgba(0, 212, 255, ${a(0.5).toFixed(3)})`;
   ctx.lineWidth = 2;
 
-  // Equator
   ctx.beginPath();
   ctx.moveTo(0, H / 2);
   ctx.lineTo(W, H / 2);
   ctx.stroke();
 
-  // Prime meridian
   ctx.beginPath();
   ctx.moveTo(W / 2, 0);
   ctx.lineTo(W / 2, H);
   ctx.stroke();
 
+  // Tropics (Cancer + Capricorn) — subtle lines
+  ctx.strokeStyle = `rgba(0, 212, 255, ${a(0.12).toFixed(3)})`;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([8, 12]);
+  const tropicY1 = ((90 - 23.44) / 180) * H;
+  const tropicY2 = ((90 + 23.44) / 180) * H;
+  ctx.beginPath();
+  ctx.moveTo(0, tropicY1);
+  ctx.lineTo(W, tropicY1);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(0, tropicY2);
+  ctx.lineTo(W, tropicY2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
   // Draw continent outlines
   for (const continent of CONTINENTS) {
-    // Fill with very subtle color
-    ctx.fillStyle = "rgba(0, 212, 255, 0.06)";
+    // Fill with subtle color — brighter
+    ctx.fillStyle = `rgba(0, 212, 255, ${a(0.08).toFixed(3)})`;
     ctx.beginPath();
     const [startX, startY] = latLonToXY(continent[0][0], continent[0][1], W, H);
     ctx.moveTo(startX, startY);
@@ -139,9 +165,9 @@ export function generateWireframeTexture(): string {
     ctx.closePath();
     ctx.fill();
 
-    // Stroke outline
-    ctx.strokeStyle = "rgba(0, 212, 255, 0.35)";
-    ctx.lineWidth = 1.5;
+    // Stroke outline — brighter
+    ctx.strokeStyle = `rgba(0, 212, 255, ${a(0.45).toFixed(3)})`;
+    ctx.lineWidth = 1.8;
     ctx.beginPath();
     ctx.moveTo(startX, startY);
     for (let i = 1; i < continent.length; i++) {
