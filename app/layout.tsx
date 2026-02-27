@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, Inter } from "next/font/google";
+import { Orbitron, Inter } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -8,8 +8,8 @@ import PageTransition from "@/components/PageTransition";
 import SpaceStage from "@/components/SpaceStage";
 import KonamiCode from "@/components/KonamiCode";
 
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-space-grotesk",
+const orbitron = Orbitron({
+  variable: "--font-orbitron",
   subsets: ["latin"],
   display: "swap",
 });
@@ -22,18 +22,18 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "TECH AND SPACE — Your Portal to the Future",
-    template: "%s | TECH AND SPACE",
+    default: "TECH & SPACE — Your Portal to the Future",
+    template: "%s | TECH & SPACE",
   },
   description:
     "Tech & space news portal. AI, Gaming, Space, Technology, Medicine, Society, and Robotics — curated from around the globe.",
   openGraph: {
-    title: "TECH AND SPACE — Your Portal to the Future",
+    title: "TECH & SPACE — Your Portal to the Future",
     description:
       "Tech & space news portal with 3D globe visualization.",
     type: "website",
     locale: "en_US",
-    siteName: "TECH AND SPACE",
+    siteName: "TECH & SPACE",
   },
 };
 
@@ -45,7 +45,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body
-        className={`${spaceGrotesk.variable} ${inter.variable} font-body antialiased bg-space-bg text-text-primary`}
+        className={`${orbitron.variable} ${inter.variable} font-body antialiased bg-space-bg text-text-primary`}
       >
         <TerminalBoot />
         <SpaceStage />

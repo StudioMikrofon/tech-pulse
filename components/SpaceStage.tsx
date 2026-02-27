@@ -104,6 +104,8 @@ interface NebulaPulse {
   phase: number;
   phaseSpeed: number;
   color: [number, number, number];
+  cachedGrad: CanvasGradient | null;
+  lastAlpha: number;
 }
 
 // Overlay objects (z-20 canvas)
@@ -124,25 +126,19 @@ interface OverlayObject {
   headRadius?: number;
 }
 
-// Mini-game types
-interface Meteor {
+// Star Catcher game types
+interface FallingStar {
   x: number;
   y: number;
   speed: number;
   size: number;
   active: boolean;
+  type: "gold" | "blue" | "blackhole";
+  pulse: number;
+  pulseSpeed: number;
 }
 
-interface Laser {
-  x: number;
-  y: number;
-  tx: number;
-  ty: number;
-  life: number;
-  active: boolean;
-}
-
-interface Particle {
+interface SparkleParticle {
   x: number;
   y: number;
   vx: number;
@@ -150,6 +146,7 @@ interface Particle {
   life: number;
   active: boolean;
   color: string;
+  size: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -186,9 +183,11 @@ export default function SpaceStage() {
   const gameActiveRef = useRef(false);
   const [gameActive, setGameActive] = useState(false);
   const [score, setScore] = useState(0);
-  const [gamePaused, setGamePaused] = useState(false);
+  const [gameOver, setGameOver] = useState(false);
   const scoreRef = useRef(0);
-  const gamePausedRef = useRef(false);
+  const comboRef = useRef(1);
+  const missedRef = useRef(0);
+  const gameOverRef = useRef(false);
 
   const setup = useCallback(() => {
     const bgCanvas = bgCanvasRef.current;
@@ -239,7 +238,7 @@ export default function SpaceStage() {
     // -----------------------------------------------------------------------
     const fpsSamples: number[] = [];
     const FPS_SAMPLE_COUNT = 60;
-    let qualityScale = 1; // 1 = full, decreases if fps < 50
+    let qualityScale = 1;
 
     function updateAdaptiveQuality(dt: number) {
       if (dt > 0) {
@@ -248,21 +247,21 @@ export default function SpaceStage() {
       }
       if (fpsSamples.length === FPS_SAMPLE_COUNT) {
         const avg = fpsSamples.reduce((a, b) => a + b, 0) / FPS_SAMPLE_COUNT;
-        if (avg < 40) qualityScale = Math.max(0.4, qualityScale - 0.05);
-        else if (avg < 50) qualityScale = Math.max(0.6, qualityScale - 0.02);
+        if (avg < 35) qualityScale = Math.max(0.3, qualityScale - 0.06);
+        else if (avg < 45) qualityScale = Math.max(0.5, qualityScale - 0.03);
         else if (avg > 55) qualityScale = Math.min(1, qualityScale + 0.01);
       }
     }
 
     // -----------------------------------------------------------------------
-    // Star layers
+    // Star layers — OPTIMIZED: reduced counts
     // -----------------------------------------------------------------------
     const mobileFactor = () => (isMobile() ? 0.5 : 1);
 
     const layerConfigs = [
-      { count: 200, minR: 0.3, maxR: 0.8, speed: 0.02 },
-      { count: 120, minR: 0.6, maxR: 1.2, speed: 0.05 },
-      { count: 60, minR: 1.0, maxR: 1.8, speed: 0.1 },
+      { count: 140, minR: 0.3, maxR: 0.8, speed: 0.02 },
+      { count: 80, minR: 0.6, maxR: 1.2, speed: 0.05 },
+      { count: 35, minR: 1.0, maxR: 1.8, speed: 0.1 },
     ];
 
     function createStars(): Star[][] {
@@ -320,11 +319,11 @@ export default function SpaceStage() {
     }
 
     // -----------------------------------------------------------------------
-    // Code rain columns
+    // Code rain columns — OPTIMIZED: reduced count
     // -----------------------------------------------------------------------
     function createCodeColumns(): CodeColumn[] {
       if (isMobile() || prefersReducedMotion) return [];
-      const colCount = Math.round((15 + Math.floor(Math.random() * 6)) * qualityScale);
+      const colCount = Math.round((10 + Math.floor(Math.random() * 5)) * qualityScale);
       const cols: CodeColumn[] = [];
       for (let i = 0; i < colCount; i++) {
         const trailLength = 8 + Math.floor(Math.random() * 14);
@@ -367,7 +366,7 @@ export default function SpaceStage() {
     let dataParticles = createDataParticles();
 
     // -----------------------------------------------------------------------
-    // Nebula pulses
+    // Nebula pulses — OPTIMIZED: cached gradients
     // -----------------------------------------------------------------------
     function createNebulaPulses(): NebulaPulse[] {
       if (prefersReducedMotion) return [];
@@ -384,6 +383,8 @@ export default function SpaceStage() {
           phase: Math.random() * Math.PI * 2,
           phaseSpeed: randRange(0.0003, 0.0008),
           color: colors[i % colors.length],
+          cachedGrad: null,
+          lastAlpha: -1,
         });
       }
       return pulses;
@@ -534,80 +535,100 @@ export default function SpaceStage() {
     }
 
     // -----------------------------------------------------------------------
-    // Mini-game: Object pools
+    // Star Catcher game: Object pools
     // -----------------------------------------------------------------------
-    const meteorPool: Meteor[] = [];
-    for (let i = 0; i < 10; i++) meteorPool.push({ x: 0, y: -50, speed: 0, size: 0, active: false });
+    const starPool: FallingStar[] = [];
+    for (let i = 0; i < 15; i++) starPool.push({ x: 0, y: -50, speed: 0, size: 0, active: false, type: "gold", pulse: 0, pulseSpeed: 0 });
 
-    const laserPool: Laser[] = [];
-    for (let i = 0; i < 20; i++) laserPool.push({ x: 0, y: 0, tx: 0, ty: 0, life: 0, active: false });
+    const sparklePool: SparkleParticle[] = [];
+    for (let i = 0; i < 60; i++) sparklePool.push({ x: 0, y: 0, vx: 0, vy: 0, life: 0, active: false, color: "#fff", size: 0 });
 
-    const particlePool: Particle[] = [];
-    for (let i = 0; i < 50; i++) particlePool.push({ x: 0, y: 0, vx: 0, vy: 0, life: 0, active: false, color: "#fff" });
-
-    let nextMeteorTime = 0;
+    let nextStarTime = 0;
     let gameElapsedMs = 0;
+    let shakeTimer = 0;
+    let shakeIntensity = 0;
 
-    function spawnMeteor() {
-      const m = meteorPool.find((m) => !m.active);
-      if (!m) return;
-      m.x = randRange(50, width - 50);
-      m.y = -30;
-      m.speed = randRange(1, 2.5);
-      m.size = randRange(12, 22);
-      m.active = true;
+    function spawnFallingStar() {
+      const s = starPool.find((s) => !s.active);
+      if (!s) return;
+
+      const difficultyFactor = Math.min(scoreRef.current / 200, 3);
+
+      s.x = randRange(40, width - 40);
+      s.y = -30;
+      s.speed = randRange(1.2, 2.0) + difficultyFactor * 0.3;
+      s.size = randRange(14, 22);
+      s.active = true;
+      s.pulse = 0;
+      s.pulseSpeed = randRange(0.05, 0.1);
+
+      // Determine type
+      const roll = Math.random();
+      if (roll < 0.15) {
+        s.type = "blackhole";
+        s.size = randRange(18, 28);
+        s.speed *= 0.8;
+      } else if (roll < 0.22) {
+        s.type = "blue";
+        s.size = randRange(12, 18);
+      } else {
+        s.type = "gold";
+      }
     }
 
-    function fireLaser(fromX: number, fromY: number, toX: number, toY: number) {
-      const l = laserPool.find((l) => !l.active);
-      if (!l) return;
-      l.x = fromX;
-      l.y = fromY;
-      l.tx = toX;
-      l.ty = toY;
-      l.life = 15;
-      l.active = true;
-    }
-
-    function spawnHitParticles(x: number, y: number) {
-      const count = 8 + Math.floor(Math.random() * 7);
-      const colors = ["#FFD700", "#FF6347", "#FFA500", "#FF4500", "#FFFF00"];
+    function spawnSparkles(x: number, y: number, color: string, count: number) {
       for (let i = 0; i < count; i++) {
-        const p = particlePool.find((p) => !p.active);
+        const p = sparklePool.find((p) => !p.active);
         if (!p) break;
         const ang = Math.random() * Math.PI * 2;
-        const spd = randRange(1, 4);
+        const spd = randRange(1.5, 5);
         p.x = x;
         p.y = y;
         p.vx = Math.cos(ang) * spd;
         p.vy = Math.sin(ang) * spd;
-        p.life = randRange(20, 40);
+        p.life = randRange(25, 45);
         p.active = true;
-        p.color = colors[Math.floor(Math.random() * colors.length)];
+        p.color = color;
+        p.size = randRange(1.5, 3.5);
       }
     }
 
-    // Pointer handler for game
+    // Pointer handler for Star Catcher
     function handlePointerUp(e: PointerEvent) {
-      if (!gameActiveRef.current || gamePausedRef.current) return;
+      if (!gameActiveRef.current || gameOverRef.current) return;
       const rect = bgCanvas!.getBoundingClientRect();
       const px = e.clientX - rect.left;
       const py = e.clientY - rect.top;
 
-      // Fire laser from bottom center to pointer position
-      fireLaser(width / 2, height - 20, px, py);
-
-      // Hit detection
-      for (const m of meteorPool) {
-        if (!m.active) continue;
-        const dx = m.x - px;
-        const dy = m.y - py;
+      for (const s of starPool) {
+        if (!s.active) continue;
+        const dx = s.x - px;
+        const dy = s.y - py;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < m.size + 25) {
-          m.active = false;
-          spawnHitParticles(m.x, m.y);
-          scoreRef.current += 10;
+        if (dist < s.size + 15) {
+          s.active = false;
+
+          if (s.type === "blackhole") {
+            // Penalty
+            scoreRef.current = Math.max(0, scoreRef.current - 20);
+            comboRef.current = 1;
+            shakeTimer = 15;
+            shakeIntensity = 6;
+            spawnSparkles(s.x, s.y, "#6B21A8", 10);
+          } else if (s.type === "blue") {
+            // Power-up
+            scoreRef.current += 50 * comboRef.current;
+            comboRef.current = Math.min(comboRef.current + 1, 8);
+            spawnSparkles(s.x, s.y, "#60A5FA", 15);
+          } else {
+            // Gold star
+            scoreRef.current += 10 * comboRef.current;
+            comboRef.current = Math.min(comboRef.current + 1, 8);
+            spawnSparkles(s.x, s.y, "#FFD700", 12);
+          }
+
           setScore(scoreRef.current);
+          return; // Only catch one per click
         }
       }
     }
@@ -715,10 +736,9 @@ export default function SpaceStage() {
       const rawDt = lastTimestamp ? timestamp - lastTimestamp : 16.67;
       lastTimestamp = timestamp;
 
-      // dt clamping per spec
       const dtSec = clamp(rawDt / 1000, 0, 0.033);
       const factor = dtSec * 60;
-      const dt = rawDt; // keep ms for timers
+      const dt = rawDt;
 
       elapsedMs += dt;
 
@@ -726,9 +746,18 @@ export default function SpaceStage() {
       updateAdaptiveQuality(rawDt);
 
       // === BACKGROUND CANVAS =================================================
-      bgCtx!.clearRect(0, 0, width, height);
+      // Screen shake for game
+      if (shakeTimer > 0) {
+        shakeTimer -= factor;
+        const sx = (Math.random() - 0.5) * shakeIntensity;
+        const sy = (Math.random() - 0.5) * shakeIntensity;
+        bgCtx!.save();
+        bgCtx!.translate(sx, sy);
+      }
 
-      // === Stars ==============================================================
+      bgCtx!.clearRect(-10, -10, width + 20, height + 20);
+
+      // === Stars — OPTIMIZED: skip dim stars ================================
       for (const stars of layers) {
         for (const star of stars) {
           if (!prefersReducedMotion) {
@@ -742,6 +771,10 @@ export default function SpaceStage() {
           const twinkle = prefersReducedMotion
             ? star.baseAlpha
             : star.baseAlpha * (0.6 + 0.4 * Math.sin(star.twinklePhase));
+
+          // Skip near-invisible stars
+          if (twinkle < 0.08) continue;
+
           const [r, g, b] = star.tint;
           bgCtx!.beginPath();
           bgCtx!.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
@@ -750,18 +783,26 @@ export default function SpaceStage() {
         }
       }
 
-      // === Nebula pulses =====================================================
+      // === Nebula pulses — OPTIMIZED: cached gradients when alpha stable ====
       if (!prefersReducedMotion) {
         for (const np of nebulaPulses) {
           np.phase += np.phaseSpeed * dt;
           const alpha = 0.02 + 0.02 * Math.sin(np.phase);
-          const [r, g, b] = np.color;
-          const grad = bgCtx!.createRadialGradient(np.x, np.y, 0, np.x, np.y, np.radius);
-          grad.addColorStop(0, `rgba(${r},${g},${b},${alpha})`);
-          grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+          const alphaRounded = Math.round(alpha * 1000) / 1000;
+
+          // Only recreate gradient if alpha changed
+          if (np.cachedGrad === null || alphaRounded !== np.lastAlpha) {
+            const [r, g, b] = np.color;
+            const grad = bgCtx!.createRadialGradient(np.x, np.y, 0, np.x, np.y, np.radius);
+            grad.addColorStop(0, `rgba(${r},${g},${b},${alphaRounded})`);
+            grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+            np.cachedGrad = grad;
+            np.lastAlpha = alphaRounded;
+          }
+
           bgCtx!.beginPath();
           bgCtx!.arc(np.x, np.y, np.radius, 0, Math.PI * 2);
-          bgCtx!.fillStyle = grad;
+          bgCtx!.fillStyle = np.cachedGrad;
           bgCtx!.fill();
         }
       }
@@ -1013,92 +1054,153 @@ export default function SpaceStage() {
         }
       }
 
-      // === Mini-game =========================================================
-      if (gameActiveRef.current && !gamePausedRef.current && !prefersReducedMotion) {
+      // === Star Catcher Game =================================================
+      if (gameActiveRef.current && !gameOverRef.current && !prefersReducedMotion) {
         gameElapsedMs += dt;
 
-        // Spawn meteors
-        if (gameElapsedMs >= nextMeteorTime) {
-          spawnMeteor();
-          nextMeteorTime = gameElapsedMs + randRange(2000, 4000);
+        // Spawn falling stars
+        if (gameElapsedMs >= nextStarTime) {
+          spawnFallingStar();
+          const difficultyFactor = Math.min(scoreRef.current / 200, 3);
+          nextStarTime = gameElapsedMs + randRange(1200, 2500) - difficultyFactor * 200;
         }
 
-        // Update & draw meteors
-        for (const m of meteorPool) {
-          if (!m.active) continue;
-          m.y += m.speed * factor;
+        // Update & draw falling stars
+        for (const s of starPool) {
+          if (!s.active) continue;
+          s.y += s.speed * factor;
+          s.pulse += s.pulseSpeed * factor;
 
-          // Draw meteor (rocky circle)
-          bgCtx!.save();
-          bgCtx!.globalAlpha = 0.8;
-          const mGrad = bgCtx!.createRadialGradient(m.x, m.y, 0, m.x, m.y, m.size);
-          mGrad.addColorStop(0, "#FF6347");
-          mGrad.addColorStop(0.6, "#8B4513");
-          mGrad.addColorStop(1, "rgba(139,69,19,0)");
-          bgCtx!.beginPath();
-          bgCtx!.arc(m.x, m.y, m.size, 0, Math.PI * 2);
-          bgCtx!.fillStyle = mGrad;
-          bgCtx!.fill();
-          bgCtx!.globalAlpha = 1;
-          bgCtx!.restore();
+          if (s.type === "gold") {
+            // Pulsing golden star
+            const glow = 0.7 + 0.3 * Math.sin(s.pulse);
+            const starGrad = bgCtx!.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.size * 1.5);
+            starGrad.addColorStop(0, `rgba(255,215,0,${glow})`);
+            starGrad.addColorStop(0.5, `rgba(255,180,0,${glow * 0.4})`);
+            starGrad.addColorStop(1, `rgba(255,150,0,0)`);
+            bgCtx!.beginPath();
+            bgCtx!.arc(s.x, s.y, s.size * 1.5, 0, Math.PI * 2);
+            bgCtx!.fillStyle = starGrad;
+            bgCtx!.fill();
 
-          if (m.y > height + 50) m.active = false;
+            // Star shape
+            drawStarShape(bgCtx!, s.x, s.y, s.size * 0.5, s.size, 5, `rgba(255,223,0,${glow})`);
+          } else if (s.type === "blue") {
+            // Blue power-up star
+            const glow = 0.8 + 0.2 * Math.sin(s.pulse * 1.5);
+            const starGrad = bgCtx!.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.size * 1.8);
+            starGrad.addColorStop(0, `rgba(96,165,250,${glow})`);
+            starGrad.addColorStop(0.4, `rgba(59,130,246,${glow * 0.5})`);
+            starGrad.addColorStop(1, `rgba(30,64,175,0)`);
+            bgCtx!.beginPath();
+            bgCtx!.arc(s.x, s.y, s.size * 1.8, 0, Math.PI * 2);
+            bgCtx!.fillStyle = starGrad;
+            bgCtx!.fill();
+
+            drawStarShape(bgCtx!, s.x, s.y, s.size * 0.4, s.size * 0.9, 5, `rgba(147,197,253,${glow})`);
+          } else {
+            // Black hole — dark circle with distortion
+            const bhGrad = bgCtx!.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.size * 1.5);
+            bhGrad.addColorStop(0, `rgba(0,0,0,0.9)`);
+            bhGrad.addColorStop(0.5, `rgba(30,0,60,0.6)`);
+            bhGrad.addColorStop(0.8, `rgba(80,0,120,0.2)`);
+            bhGrad.addColorStop(1, `rgba(120,0,180,0)`);
+            bgCtx!.beginPath();
+            bgCtx!.arc(s.x, s.y, s.size * 1.5, 0, Math.PI * 2);
+            bgCtx!.fillStyle = bhGrad;
+            bgCtx!.fill();
+
+            // Spinning ring
+            bgCtx!.save();
+            bgCtx!.translate(s.x, s.y);
+            bgCtx!.rotate(s.pulse);
+            bgCtx!.beginPath();
+            bgCtx!.ellipse(0, 0, s.size * 1.2, s.size * 0.4, 0, 0, Math.PI * 2);
+            bgCtx!.strokeStyle = `rgba(160,80,255,0.4)`;
+            bgCtx!.lineWidth = 1.5;
+            bgCtx!.stroke();
+            bgCtx!.restore();
+          }
+
+          // Star missed — passed bottom
+          if (s.y > height + 50) {
+            s.active = false;
+            if (s.type !== "blackhole") {
+              missedRef.current += 1;
+              comboRef.current = 1;
+              if (missedRef.current >= 5) {
+                gameOverRef.current = true;
+                setGameOver(true);
+              }
+            }
+          }
         }
 
-        // Update & draw lasers
-        for (const l of laserPool) {
-          if (!l.active) continue;
-          l.life -= factor;
-          if (l.life <= 0) { l.active = false; continue; }
-
-          const la = Math.min(l.life / 10, 1);
-          bgCtx!.beginPath();
-          bgCtx!.moveTo(l.x, l.y);
-          bgCtx!.lineTo(l.tx, l.ty);
-          bgCtx!.strokeStyle = `rgba(0,255,200,${la})`;
-          bgCtx!.lineWidth = 2;
-          bgCtx!.stroke();
-
-          // Glow
-          bgCtx!.beginPath();
-          bgCtx!.moveTo(l.x, l.y);
-          bgCtx!.lineTo(l.tx, l.ty);
-          bgCtx!.strokeStyle = `rgba(0,255,200,${la * 0.3})`;
-          bgCtx!.lineWidth = 6;
-          bgCtx!.stroke();
-        }
-
-        // Update & draw particles
-        for (const p of particlePool) {
+        // Update & draw sparkle particles
+        for (const p of sparklePool) {
           if (!p.active) continue;
           p.x += p.vx * factor;
           p.y += p.vy * factor;
+          p.vy += 0.05 * factor; // gravity
           p.life -= factor;
           if (p.life <= 0) { p.active = false; continue; }
 
           const pa = Math.min(p.life / 15, 1);
           bgCtx!.beginPath();
-          bgCtx!.arc(p.x, p.y, 2, 0, Math.PI * 2);
+          bgCtx!.arc(p.x, p.y, p.size, 0, Math.PI * 2);
           bgCtx!.fillStyle = p.color;
           bgCtx!.globalAlpha = pa;
           bgCtx!.fill();
           bgCtx!.globalAlpha = 1;
         }
 
-        // Draw score on canvas (top-right)
+        // Draw HUD on canvas
         bgCtx!.save();
-        bgCtx!.font = "bold 20px 'Space Grotesk', sans-serif";
+        bgCtx!.font = "bold 22px 'Orbitron', sans-serif";
         bgCtx!.textAlign = "right";
-        bgCtx!.fillStyle = "rgba(0,255,200,0.8)";
+        bgCtx!.fillStyle = "rgba(255,215,0,0.9)";
         bgCtx!.fillText(`SCORE: ${scoreRef.current}`, width - 20, 80);
-        bgCtx!.restore();
 
-        // Turret indicator at bottom
+        if (comboRef.current > 1) {
+          bgCtx!.font = "bold 16px 'Orbitron', sans-serif";
+          bgCtx!.fillStyle = "rgba(96,165,250,0.9)";
+          bgCtx!.fillText(`x${comboRef.current} COMBO`, width - 20, 106);
+        }
+
+        // Missed indicator
+        bgCtx!.textAlign = "left";
+        bgCtx!.font = "bold 14px 'Orbitron', sans-serif";
+        bgCtx!.fillStyle = "rgba(255,100,100,0.8)";
+        const hearts = "★".repeat(5 - missedRef.current) + "☆".repeat(missedRef.current);
+        bgCtx!.fillText(hearts, 20, 80);
+
+        bgCtx!.restore();
+      }
+
+      // Game over overlay
+      if (gameActiveRef.current && gameOverRef.current) {
         bgCtx!.save();
-        bgCtx!.beginPath();
-        bgCtx!.arc(width / 2, height - 10, 6, 0, Math.PI * 2);
-        bgCtx!.fillStyle = "rgba(0,255,200,0.6)";
-        bgCtx!.fill();
+        bgCtx!.fillStyle = "rgba(5,7,13,0.7)";
+        bgCtx!.fillRect(0, 0, width, height);
+
+        bgCtx!.textAlign = "center";
+        bgCtx!.font = "bold 36px 'Orbitron', sans-serif";
+        bgCtx!.fillStyle = "#FFD700";
+        bgCtx!.fillText("GAME OVER", width / 2, height / 2 - 30);
+
+        bgCtx!.font = "bold 24px 'Orbitron', sans-serif";
+        bgCtx!.fillStyle = "#EAF0FF";
+        bgCtx!.fillText(`Final Score: ${scoreRef.current}`, width / 2, height / 2 + 20);
+
+        bgCtx!.font = "14px sans-serif";
+        bgCtx!.fillStyle = "rgba(143,211,255,0.7)";
+        bgCtx!.fillText("Tap 🎮 to play again", width / 2, height / 2 + 60);
+
+        bgCtx!.restore();
+      }
+
+      // Restore shake transform
+      if (shakeTimer > 0) {
         bgCtx!.restore();
       }
 
@@ -1155,6 +1257,22 @@ export default function SpaceStage() {
       animationRef.current = requestAnimationFrame(draw);
     }
 
+    // Helper: draw a 5-pointed star shape
+    function drawStarShape(ctx: CanvasRenderingContext2D, cx: number, cy: number, innerR: number, outerR: number, points: number, color: string) {
+      ctx.save();
+      ctx.beginPath();
+      for (let i = 0; i < points * 2; i++) {
+        const angle = (i * Math.PI) / points - Math.PI / 2;
+        const r = i % 2 === 0 ? outerR : innerR;
+        if (i === 0) ctx.moveTo(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r);
+        else ctx.lineTo(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r);
+      }
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.restore();
+    }
+
     animationRef.current = requestAnimationFrame(draw);
 
     return () => {
@@ -1172,17 +1290,25 @@ export default function SpaceStage() {
 
   // Sync refs with state
   useEffect(() => { gameActiveRef.current = gameActive; }, [gameActive]);
-  useEffect(() => { gamePausedRef.current = gamePaused; }, [gamePaused]);
+  useEffect(() => { gameOverRef.current = gameOver; }, [gameOver]);
 
   const toggleGame = () => {
     if (gameActive) {
       setGameActive(false);
-      setGamePaused(false);
+      setGameOver(false);
       scoreRef.current = 0;
+      comboRef.current = 1;
+      missedRef.current = 0;
+      gameOverRef.current = false;
       setScore(0);
     } else {
+      scoreRef.current = 0;
+      comboRef.current = 1;
+      missedRef.current = 0;
+      gameOverRef.current = false;
+      setGameOver(false);
+      setScore(0);
       setGameActive(true);
-      setGamePaused(false);
     }
   };
 
@@ -1194,9 +1320,9 @@ export default function SpaceStage() {
         id="space-stage-canvas"
         className="fixed inset-0"
         style={{
-          zIndex: 0,
+          zIndex: gameActive ? 5 : 0,
           pointerEvents: gameActive ? "auto" : "none",
-          touchAction: "pan-y",
+          touchAction: gameActive ? "none" : "pan-y",
         }}
         aria-hidden="true"
       />
@@ -1214,29 +1340,17 @@ export default function SpaceStage() {
         onClick={toggleGame}
         className="fixed bottom-6 right-6 z-[55] w-12 h-12 rounded-full glass-card flex items-center justify-center text-xl hover:scale-110 transition-transform !hover:transform-none cursor-pointer"
         style={{ pointerEvents: "auto" }}
-        aria-label={gameActive ? "Stop game" : "Start space shooter"}
-        title={gameActive ? "Stop game" : "Space shooter mini-game"}
+        aria-label={gameActive ? "Stop game" : "Start Star Catcher"}
+        title={gameActive ? "Stop game" : "Star Catcher mini-game"}
       >
         {gameActive ? "⏹" : "🎮"}
       </button>
 
-      {/* Pause button (only when game active) */}
-      {gameActive && (
-        <button
-          onClick={() => setGamePaused(!gamePaused)}
-          className="fixed bottom-6 right-20 z-[55] w-10 h-10 rounded-full glass-card flex items-center justify-center text-lg hover:scale-110 transition-transform !hover:transform-none cursor-pointer"
-          style={{ pointerEvents: "auto" }}
-          aria-label={gamePaused ? "Resume game" : "Pause game"}
-        >
-          {gamePaused ? "▶" : "⏸"}
-        </button>
-      )}
-
       {/* Game active indicator */}
-      {gameActive && (
+      {gameActive && !gameOver && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[55] pointer-events-none">
-          <div className="glass-card px-4 py-2 text-sm text-accent-cyan font-mono">
-            {gamePaused ? "PAUSED" : "TAP TO SHOOT METEORS"}
+          <div className="glass-card px-4 py-2 text-sm text-accent-amber font-mono">
+            TAP STARS TO CATCH — AVOID BLACK HOLES
           </div>
         </div>
       )}

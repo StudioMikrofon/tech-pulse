@@ -32,11 +32,11 @@ export default function Header() {
         <Link href="/" className="flex items-center gap-2 group">
           <img
             src="/logo.jpg"
-            alt="TECH AND SPACE"
+            alt="TECH & SPACE"
             className="w-9 h-9 rounded-md object-cover group-hover:brightness-125 transition-all"
           />
           <span className="font-heading text-xl font-bold text-text-primary">
-            TECH AND SPACE
+            TECH & SPACE
           </span>
           <span className="live-dot ml-1" />
         </Link>

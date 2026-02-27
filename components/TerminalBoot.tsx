@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { playSound } from "@/lib/sounds";
 
 const BOOT_LINES = [
-  "> INITIALIZING TECH AND SPACE v2.0...",
+  "> INITIALIZING TECH & SPACE v2.0...",
   "> CONNECTING TO ORBITAL NETWORK...",
   "> LOADING STAR CHARTS... [OK]",
   "> SYNCING GLOBAL NEWS FEED... [OK]",

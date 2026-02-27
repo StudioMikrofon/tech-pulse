@@ -34,7 +34,7 @@ const config: Config = {
         },
       },
       fontFamily: {
-        heading: ["var(--font-space-grotesk)", "sans-serif"],
+        heading: ["var(--font-orbitron)", "sans-serif"],
         body: ["var(--font-inter)", "sans-serif"],
       },
       typography: {

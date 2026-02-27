@@ -70,7 +70,7 @@ export default async function ArticlePage({ params }: PageProps) {
     },
     publisher: {
       "@type": "Organization",
-      name: "TECH AND SPACE",
+      name: "TECH & SPACE",
     },
   };
 

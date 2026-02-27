@@ -3,7 +3,7 @@
 :root {
   --background: #05070D;
   --foreground: #EAF0FF;
-  --font-heading: var(--font-space-grotesk);
+  --font-heading: var(--font-orbitron);
   --font-body: var(--font-inter);
 }
 

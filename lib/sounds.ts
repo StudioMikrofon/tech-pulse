@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// TECH AND SPACE - Procedural Sci-Fi Sound Effects (Web Audio API)
+// TECH & SPACE - Procedural Sci-Fi Sound Effects (Web Audio API)
 // ---------------------------------------------------------------------------
 // All sounds are generated programmatically using oscillators and noise
 // buffers. No external audio files are required.

@@ -110,6 +110,14 @@ const GlobeWrapper = forwardRef<GlobeHandle, GlobeWrapperProps>(
       [onPinClick]
     );
 
+    const htmlElementsData = pins.map((pin) => ({
+      lat: pin.lat,
+      lng: pin.lng,
+      label: pin.label,
+      color: pin.color,
+      id: pin.id,
+    }));
+
     return (
       <Globe
         ref={globeRef}
@@ -125,17 +133,69 @@ const GlobeWrapper = forwardRef<GlobeHandle, GlobeWrapperProps>(
         pointLng="lng"
         pointColor="color"
         pointAltitude={0.02}
-        pointRadius={0.6}
+        pointRadius={0.8}
         onPointClick={handlePinClick}
-        labelsData={pins}
-        labelLat="lat"
-        labelLng="lng"
-        labelText="label"
-        labelSize={0.4}
-        labelDotRadius={0.15}
-        labelColor="color"
-        labelAltitude={0.015}
-        labelResolution={2}
+        htmlElementsData={htmlElementsData}
+        htmlLat="lat"
+        htmlLng="lng"
+        htmlAltitude={0.03}
+        htmlElement={(d: any) => {
+          const el = document.createElement("div");
+          el.style.cssText = `
+            position: relative;
+            cursor: pointer;
+          `;
+
+          // Dot
+          const dot = document.createElement("div");
+          dot.style.cssText = `
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: ${d.color};
+            box-shadow: 0 0 6px ${d.color};
+            transition: transform 0.2s;
+          `;
+          el.appendChild(dot);
+
+          // Tooltip (hidden by default)
+          const tooltip = document.createElement("div");
+          tooltip.textContent = d.label;
+          tooltip.style.cssText = `
+            position: absolute;
+            bottom: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(5, 7, 13, 0.85);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #EAF0FF;
+            font-size: 11px;
+            font-family: sans-serif;
+            padding: 4px 8px;
+            border-radius: 6px;
+            white-space: nowrap;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 10;
+          `;
+          el.appendChild(tooltip);
+
+          el.addEventListener("mouseenter", () => {
+            tooltip.style.opacity = "1";
+            dot.style.transform = "scale(1.5)";
+          });
+          el.addEventListener("mouseleave", () => {
+            tooltip.style.opacity = "0";
+            dot.style.transform = "scale(1)";
+          });
+
+          return el;
+        }}
         animateIn={true}
       />
     );
