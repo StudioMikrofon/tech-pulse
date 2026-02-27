@@ -329,3 +329,142 @@ export function getTelemetryStub(objectId: string): TelemetryEntry[] {
       ];
   }
 }
+
+// ---------------------------------------------------------------------------
+// Radio JOVE data (NASA citizen science — Jupiter/Sun radio emissions)
+// Source: https://radiojove.gsfc.nasa.gov/
+// ---------------------------------------------------------------------------
+
+export interface RadioJoveEntry {
+  id: string;
+  source: string; // "Jupiter" | "Sun" | "Galaxy"
+  frequency: string; // MHz
+  type: string; // "S-burst" | "L-burst" | "Type III" etc.
+  intensity: number; // dB, 0-100 scale
+  timestamp: string;
+  station: string; // observer station name
+}
+
+export const RADIO_JOVE_DATA: TrackerDataset<RadioJoveEntry> = {
+  lastUpdated: "2026-02-27T11:30:00Z",
+  source: "NASA Radio JOVE Archive",
+  entries: [
+    {
+      id: "rj-1", source: "Jupiter", frequency: "20.1 MHz",
+      type: "Io-B L-burst", intensity: 72, timestamp: "2026-02-27T08:14:00Z",
+      station: "Windward CC, FL",
+    },
+    {
+      id: "rj-2", source: "Sun", frequency: "20.1 MHz",
+      type: "Type III Solar Burst", intensity: 85, timestamp: "2026-02-27T10:42:00Z",
+      station: "Radio JOVE HQ",
+    },
+    {
+      id: "rj-3", source: "Jupiter", frequency: "18.5 MHz",
+      type: "Io-A S-burst", intensity: 58, timestamp: "2026-02-26T22:30:00Z",
+      station: "AJ4CO Observatory",
+    },
+    {
+      id: "rj-4", source: "Galaxy", frequency: "20.1 MHz",
+      type: "Galactic Background", intensity: 34, timestamp: "2026-02-27T04:00:00Z",
+      station: "UFRO Chile",
+    },
+    {
+      id: "rj-5", source: "Sun", frequency: "22.0 MHz",
+      type: "Type II Sweep", intensity: 91, timestamp: "2026-02-27T11:15:00Z",
+      station: "Larry Dodd SDRplay",
+    },
+  ],
+};
+
+// ---------------------------------------------------------------------------
+// Launch Dashboard data (WebSocket telemetry for rocket launches)
+// Source: https://github.com/shahar603/Launch-Dashboard-API
+// WebSocket: wss://api.launchdashboard.space (Socket.IO)
+// ---------------------------------------------------------------------------
+
+export interface LaunchTelemetryFrame {
+  time: number; // seconds since launch (T+)
+  velocity: number; // km/h
+  altitude: number; // km
+  downrange: number; // km
+  acceleration: number; // G
+  dynamicPressure: number; // kPa (Max-Q)
+}
+
+export interface LaunchEvent {
+  id: string;
+  mission: string;
+  vehicle: string;
+  provider: string;
+  site: string;
+  status: "upcoming" | "live" | "completed" | "scrubbed";
+  launchTime: string; // ISO
+  // Latest telemetry frame (mock for now)
+  telemetry: LaunchTelemetryFrame | null;
+  // Key events
+  events: { time: number; label: string }[];
+}
+
+export const LAUNCH_DATA: TrackerDataset<LaunchEvent> = {
+  lastUpdated: "2026-02-27T12:00:00Z",
+  source: "Launch Dashboard API (mock)",
+  entries: [
+    {
+      id: "launch-1",
+      mission: "Starlink Group 12-5",
+      vehicle: "Falcon 9 Block 5",
+      provider: "SpaceX",
+      site: "KSC LC-39A, Florida",
+      status: "upcoming",
+      launchTime: "2026-02-28T14:30:00Z",
+      telemetry: null,
+      events: [
+        { time: 0, label: "Liftoff" },
+        { time: 58, label: "Max-Q" },
+        { time: 162, label: "MECO" },
+        { time: 168, label: "Stage Sep" },
+        { time: 390, label: "Entry Burn" },
+        { time: 510, label: "Landing" },
+        { time: 535, label: "SECO" },
+        { time: 960, label: "Deployment" },
+      ],
+    },
+    {
+      id: "launch-2",
+      mission: "NROL-186",
+      vehicle: "Vulcan Centaur",
+      provider: "ULA",
+      site: "CCSFS SLC-41, Florida",
+      status: "upcoming",
+      launchTime: "2026-03-02T08:00:00Z",
+      telemetry: null,
+      events: [
+        { time: 0, label: "Liftoff" },
+        { time: 80, label: "Max-Q" },
+        { time: 252, label: "Booster Sep" },
+        { time: 750, label: "Payload Deploy" },
+      ],
+    },
+    {
+      id: "launch-3",
+      mission: "CRS-32",
+      vehicle: "Falcon 9 Block 5",
+      provider: "SpaceX",
+      site: "KSC LC-39A, Florida",
+      status: "completed",
+      launchTime: "2026-02-25T18:15:00Z",
+      telemetry: {
+        time: 535, velocity: 27400, altitude: 210, downrange: 1240,
+        acceleration: 0.0, dynamicPressure: 0.0,
+      },
+      events: [
+        { time: 0, label: "Liftoff" },
+        { time: 62, label: "Max-Q" },
+        { time: 158, label: "MECO" },
+        { time: 535, label: "SECO" },
+        { time: 960, label: "Dragon Deploy" },
+      ],
+    },
+  ],
+};
