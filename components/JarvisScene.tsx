@@ -20,14 +20,30 @@ const EARTH_POS = new THREE.Vector3(0, 0, 0);
 // Near-Earth zone: asteroids at 1 LD = 3 units from Earth
 const LD_SCALE = 1.5;
 // Planet distances (scaled, not realistic)
-const PLANET_DATA = [
-  { name: "Mercury", radius: 0.12, dist: 12, color: "#A0826D", speed: 4.15 },
-  { name: "Venus", radius: 0.22, dist: 16, color: "#E8CDA0", speed: 1.62 },
-  { name: "Mars", radius: 0.18, dist: 22, color: "#C1440E", speed: 0.53 },
-  { name: "Jupiter", radius: 0.7, dist: 32, color: "#C88B3A", speed: 0.084 },
-  { name: "Saturn", radius: 0.55, dist: 42, color: "#E8D5A3", speed: 0.034, ring: true },
-  { name: "Uranus", radius: 0.35, dist: 52, color: "#73C2C6", speed: 0.012 },
-  { name: "Neptune", radius: 0.33, dist: 60, color: "#4B70DD", speed: 0.006 },
+// Real orbital period ratios (Earth=365.25d baseline → 120s scene time)
+// speed = (2π) / (orbitalDays / 365.25 * 120) rad/s
+const YEAR_SCENE_SECONDS = 120;
+function orbitalSpeed(periodDays: number) {
+  return (2 * Math.PI) / ((periodDays / 365.25) * YEAR_SCENE_SECONDS);
+}
+// Self-rotation: Earth 24h = 0.33s → speed = 2π / 0.33
+function selfRotSpeed(rotationHours: number) {
+  const earthRotScene = YEAR_SCENE_SECONDS / 365.25; // ~0.33s per day
+  return (2 * Math.PI) / ((rotationHours / 24) * earthRotScene);
+}
+
+const PLANET_DATA: {
+  name: string; radius: number; dist: number; color: string;
+  speed: number; ring?: boolean; tilt: number; selfRot: number;
+  gasGiant?: boolean; texture?: string;
+}[] = [
+  { name: "Mercury", radius: 0.12, dist: 12, color: "#A0826D", speed: orbitalSpeed(88), tilt: 0.03, selfRot: selfRotSpeed(1407.6) },
+  { name: "Venus", radius: 0.22, dist: 16, color: "#E8CDA0", speed: orbitalSpeed(225), tilt: 2.64, selfRot: selfRotSpeed(5832.5) },
+  { name: "Mars", radius: 0.18, dist: 22, color: "#C1440E", speed: orbitalSpeed(687), tilt: 25.2, selfRot: selfRotSpeed(24.6) },
+  { name: "Jupiter", radius: 0.7, dist: 32, color: "#C88B3A", speed: orbitalSpeed(4333), tilt: 3.13, selfRot: selfRotSpeed(9.93), gasGiant: true, texture: "jupiter" },
+  { name: "Saturn", radius: 0.55, dist: 42, color: "#E8D5A3", speed: orbitalSpeed(10759), ring: true, tilt: 26.7, selfRot: selfRotSpeed(10.7), gasGiant: true },
+  { name: "Uranus", radius: 0.35, dist: 52, color: "#73C2C6", speed: orbitalSpeed(30687), tilt: 97.8, selfRot: selfRotSpeed(17.2), gasGiant: true },
+  { name: "Neptune", radius: 0.33, dist: 60, color: "#4B70DD", speed: orbitalSpeed(60190), tilt: 28.3, selfRot: selfRotSpeed(16.1), gasGiant: true },
 ];
 // Sun at origin of solar system — offset from Earth
 const SUN_POS = new THREE.Vector3(-70, 0, 0);
@@ -131,6 +147,7 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
   function JarvisScene({ width, height, issData, onSelectObject }, ref) {
 
     const containerRef = useRef<HTMLDivElement>(null);
+    const pointerDownPos = useRef<{ x: number; y: number } | null>(null);
     const internals = useRef<{
       renderer: THREE.WebGLRenderer;
       scene: THREE.Scene;
@@ -144,10 +161,11 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       flyDist: number;
       objectMap: Map<string, THREE.Object3D>;
       selectedId: string | null;
+      prevSelectedId: string | null;
       issMesh: THREE.Mesh;
       issOrbitGroup: THREE.Group;
       asteroidAnims: { mesh: THREE.Mesh; speed: number; angle: number; dist: number; approachAngle: number; trail: THREE.Points }[];
-      planetAnims: { mesh: THREE.Mesh; angle: number; speed: number; dist: number }[];
+      planetAnims: { mesh: THREE.Mesh; angle: number; speed: number; dist: number; tilt: number; selfRotSpeed: number }[];
       hudSprites: { sprite: THREE.Sprite; parent: THREE.Object3D }[];
       scanBand: THREE.Mesh;
       sunCorona: THREE.Mesh;
@@ -181,13 +199,15 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
           if (target.type === "probe") dist = 8;
           if (target.type === "dsn") dist = 4;
 
-          // ASTEROID PERSPECTIVE: camera BEHIND asteroid, looking TOWARD Earth
+          // ASTEROID PERSPECTIVE: camera BEHIND asteroid, Earth visible ahead
           if (target.type === "asteroid") {
-            dist = 5;
+            dist = 4;
             const dirToEarth = EARTH_POS.clone().sub(pos).normalize();
-            // Camera behind asteroid (opposite side from Earth)
-            internals.current.flyTarget = pos.clone().sub(dirToEarth.multiplyScalar(dist));
-            internals.current.flyTarget.y = Math.max(internals.current.flyTarget.y, pos.y + dist * 0.2);
+            // Camera behind asteroid (opposite side from Earth), look at midpoint
+            internals.current.flyTarget = pos.clone().sub(dirToEarth.clone().multiplyScalar(dist));
+            internals.current.flyTarget.y = Math.max(internals.current.flyTarget.y, pos.y + dist * 0.3);
+            // Look at midpoint between asteroid and Earth so Earth fills background
+            internals.current.flyLook = pos.clone().add(dirToEarth.clone().multiplyScalar(pos.distanceTo(EARTH_POS) * 0.3));
           } else {
             const dir = camera.position.clone().sub(pos).normalize();
             internals.current.flyTarget = pos.clone().add(dir.multiplyScalar(dist));
@@ -369,17 +389,39 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         const angle = (asteroid.approachAngle * Math.PI) / 180;
         const size = Math.max(0.08, Math.min(asteroid.diameterM / 300, 0.35));
 
-        // More detailed icosahedron + MeshStandardMaterial
-        const aGeo = new THREE.IcosahedronGeometry(size, 1);
+        // Rocky irregular asteroid: low-poly icosahedron with vertex displacement
+        const aGeo = new THREE.IcosahedronGeometry(size, 0);
+        // Displace vertices for rocky shape
+        const posAttr = aGeo.getAttribute("position");
+        for (let vi = 0; vi < posAttr.count; vi++) {
+          const nx = posAttr.getX(vi);
+          const ny = posAttr.getY(vi);
+          const nz = posAttr.getZ(vi);
+          const len = Math.sqrt(nx * nx + ny * ny + nz * nz);
+          const displace = 1 + (Math.random() * 0.5 - 0.25); // ±25%
+          posAttr.setXYZ(vi, (nx / len) * size * displace, (ny / len) * size * displace, (nz / len) * size * displace);
+        }
+        posAttr.needsUpdate = true;
+        aGeo.computeVertexNormals();
+
+        // Rocky colors: grays/browns
+        const rockyColors = [0x6b6560, 0x7a6e5e, 0x5c5550, 0x8a7d6b, 0x4e4845];
+        const baseColor = asteroid.hazardous ? 0xb03030 : rockyColors[Math.floor(Math.random() * rockyColors.length)];
         const aMat = new THREE.MeshStandardMaterial({
-          color: asteroid.hazardous ? 0xef4444 : 0xffcf6e,
-          roughness: 0.7,
-          metalness: 0.3,
-          emissive: asteroid.hazardous ? 0x991111 : 0x664400,
-          emissiveIntensity: 0.4,
+          color: baseColor,
+          roughness: 0.9,
+          metalness: 0.1,
+          emissive: asteroid.hazardous ? 0x661111 : 0x221100,
+          emissiveIntensity: 0.3,
           wireframe: false,
         });
         const aMesh = new THREE.Mesh(aGeo, aMat);
+        // Non-uniform scale for elongated shapes
+        aMesh.scale.set(
+          0.7 + Math.random() * 0.6,
+          0.7 + Math.random() * 0.6,
+          0.7 + Math.random() * 0.6,
+        );
         aMesh.position.set(
           EARTH_POS.x + Math.cos(angle) * scaledDist,
           EARTH_POS.y + Math.sin(angle * 0.3) * 0.5,
@@ -389,12 +431,12 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         objectMap.set(asteroid.id, aMesh);
 
         // Wireframe overlay for Jarvis feel
-        const aWireGeo = new THREE.IcosahedronGeometry(size * 1.05, 1);
+        const aWireGeo = new THREE.IcosahedronGeometry(size * 1.05, 0);
         const aWireMat = new THREE.MeshBasicMaterial({
-          color: asteroid.hazardous ? 0xef4444 : 0xffcf6e,
+          color: asteroid.hazardous ? 0xef4444 : 0x99887766,
           wireframe: true,
           transparent: true,
-          opacity: 0.3,
+          opacity: 0.25,
         });
         aMesh.add(new THREE.Mesh(aWireGeo, aWireMat));
 
@@ -483,22 +525,48 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       sunLabel.position.set(SUN_POS.x, SUN_POS.y + 5, SUN_POS.z);
       scene.add(sunLabel);
 
-      // ===== PLANETS (orbiting Sun) — MeshStandardMaterial + wireframe overlay =====
-      const planetAnims: { mesh: THREE.Mesh; angle: number; speed: number; dist: number }[] = [];
+      // ===== PLANETS (orbiting Sun) — improved visuals + real orbital ratios =====
+      const planetAnims: { mesh: THREE.Mesh; angle: number; speed: number; dist: number; tilt: number; selfRotSpeed: number }[] = [];
       PLANET_DATA.forEach((p) => {
         const orbitRing = createDashedRing(p.dist, 0x00d4ff, 0.06);
         orbitRing.position.copy(SUN_POS);
         scene.add(orbitRing);
 
-        // Solid lit planet
-        const pGeo = new THREE.SphereGeometry(p.radius, 16, 16);
-        const pMat = new THREE.MeshStandardMaterial({
-          color: new THREE.Color(p.color),
-          roughness: 0.6,
-          metalness: 0.2,
-          emissive: new THREE.Color(p.color),
-          emissiveIntensity: 0.15,
-        });
+        // Higher segment count for smoother spheres
+        const pGeo = new THREE.SphereGeometry(p.radius, 32, 32);
+
+        // Jupiter: canvas-drawn band texture
+        let pMat: THREE.MeshStandardMaterial;
+        if (p.texture === "jupiter") {
+          const jupCanvas = document.createElement("canvas");
+          jupCanvas.width = 256;
+          jupCanvas.height = 128;
+          const jCtx = jupCanvas.getContext("2d")!;
+          const bandColors = ["#c88b3a", "#a67228", "#d4a050", "#8a5e1e", "#c88b3a", "#b8802e", "#d4a050", "#a67228"];
+          const bandH = jupCanvas.height / bandColors.length;
+          bandColors.forEach((c, i) => {
+            jCtx.fillStyle = c;
+            jCtx.fillRect(0, i * bandH, jupCanvas.width, bandH + 1);
+          });
+          const jupTex = new THREE.CanvasTexture(jupCanvas);
+          jupTex.needsUpdate = true;
+          pMat = new THREE.MeshStandardMaterial({
+            map: jupTex,
+            roughness: 0.5,
+            metalness: 0.1,
+            emissive: new THREE.Color(p.color),
+            emissiveIntensity: p.gasGiant ? 0.25 : 0.15,
+          });
+        } else {
+          pMat = new THREE.MeshStandardMaterial({
+            color: new THREE.Color(p.color),
+            roughness: 0.5,
+            metalness: 0.15,
+            emissive: new THREE.Color(p.color),
+            emissiveIntensity: p.gasGiant ? 0.25 : 0.15,
+          });
+        }
+
         const pMesh = new THREE.Mesh(pGeo, pMat);
         const startAngle = Math.random() * Math.PI * 2;
         pMesh.position.set(
@@ -506,25 +574,41 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
           0,
           SUN_POS.z + Math.sin(startAngle) * p.dist,
         );
+        // Apply real axial tilt
+        pMesh.rotation.z = (p.tilt * Math.PI) / 180;
         scene.add(pMesh);
         objectMap.set(`planet-${p.name.toLowerCase()}`, pMesh);
 
         // Wireframe overlay for Jarvis feel
         const wireOverlay = new THREE.Mesh(
-          new THREE.SphereGeometry(p.radius * 1.05, 16, 16),
-          new THREE.MeshBasicMaterial({ color: new THREE.Color(p.color), wireframe: true, transparent: true, opacity: 0.25 }),
+          new THREE.SphereGeometry(p.radius * 1.05, 32, 32),
+          new THREE.MeshBasicMaterial({ color: new THREE.Color(p.color), wireframe: true, transparent: true, opacity: 0.2 }),
         );
         pMesh.add(wireOverlay);
 
-        // Ring for Saturn
+        // Saturn: gradient rings with Cassini gap
         if (p.ring) {
-          const ringGeo = new THREE.RingGeometry(p.radius * 1.3, p.radius * 2.2, 48);
-          const ringMat = new THREE.MeshBasicMaterial({
-            color: new THREE.Color(p.color), transparent: true, opacity: 0.3, side: THREE.DoubleSide,
-          });
-          const ringMesh = new THREE.Mesh(ringGeo, ringMat);
-          ringMesh.rotation.x = Math.PI / 2.5;
-          pMesh.add(ringMesh);
+          // Inner ring
+          const ringInner = new THREE.Mesh(
+            new THREE.RingGeometry(p.radius * 1.3, p.radius * 1.7, 64),
+            new THREE.MeshBasicMaterial({ color: 0xe8d5a3, transparent: true, opacity: 0.35, side: THREE.DoubleSide }),
+          );
+          ringInner.rotation.x = Math.PI / 2;
+          pMesh.add(ringInner);
+          // Cassini gap (thin dark ring)
+          const ringGap = new THREE.Mesh(
+            new THREE.RingGeometry(p.radius * 1.7, p.radius * 1.75, 64),
+            new THREE.MeshBasicMaterial({ color: 0x050710, transparent: true, opacity: 0.6, side: THREE.DoubleSide }),
+          );
+          ringGap.rotation.x = Math.PI / 2;
+          pMesh.add(ringGap);
+          // Outer ring
+          const ringOuter = new THREE.Mesh(
+            new THREE.RingGeometry(p.radius * 1.75, p.radius * 2.3, 64),
+            new THREE.MeshBasicMaterial({ color: 0xd4c090, transparent: true, opacity: 0.25, side: THREE.DoubleSide }),
+          );
+          ringOuter.rotation.x = Math.PI / 2;
+          pMesh.add(ringOuter);
         }
 
         // Label
@@ -532,7 +616,7 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         lbl.position.y = p.radius + 0.5;
         pMesh.add(lbl);
 
-        planetAnims.push({ mesh: pMesh, angle: startAngle, speed: p.speed, dist: p.dist });
+        planetAnims.push({ mesh: pMesh, angle: startAngle, speed: p.speed, dist: p.dist, tilt: p.tilt, selfRotSpeed: p.selfRot });
       });
 
       // ===== PROBES (compound shape: box body + solar panels) =====
@@ -635,6 +719,7 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         flyLook: null as THREE.Vector3 | null,
         flyDist: 8,
         objectMap, selectedId: null as string | null,
+        prevSelectedId: null as string | null,
         issMesh, issOrbitGroup,
         asteroidAnims, planetAnims,
         hudSprites,
@@ -648,6 +733,21 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       const mouseVec = new THREE.Vector2();
 
       function onPointerDown(e: PointerEvent) {
+        pointerDownPos.current = { x: e.clientX, y: e.clientY };
+      }
+
+      function onPointerUp(e: PointerEvent) {
+        // Drag guard: if moved >5px, treat as drag — don't select
+        if (pointerDownPos.current) {
+          const dx = e.clientX - pointerDownPos.current.x;
+          const dy = e.clientY - pointerDownPos.current.y;
+          if (Math.sqrt(dx * dx + dy * dy) > 5) {
+            pointerDownPos.current = null;
+            return;
+          }
+        }
+        pointerDownPos.current = null;
+
         const rect = renderer.domElement.getBoundingClientRect();
         mouseVec.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
         mouseVec.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
@@ -737,11 +837,12 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
             if (type === "Planet" || type === "Zvijezda") dist = 8;
             if (type === "Sonda") dist = 6;
 
-            // Asteroid perspective: camera behind, looking toward Earth
+            // Asteroid perspective: camera behind, Earth visible ahead
             if (type === "Asteroid") {
               const dirToEarth = EARTH_POS.clone().sub(pos).normalize();
-              state.flyTarget = pos.clone().sub(dirToEarth.multiplyScalar(dist));
-              state.flyTarget.y = Math.max(state.flyTarget.y, pos.y + dist * 0.2);
+              state.flyTarget = pos.clone().sub(dirToEarth.clone().multiplyScalar(dist));
+              state.flyTarget.y = Math.max(state.flyTarget.y, pos.y + dist * 0.3);
+              state.flyLook = pos.clone().add(dirToEarth.clone().multiplyScalar(pos.distanceTo(EARTH_POS) * 0.3));
             } else {
               const dir = camera.position.clone().sub(pos).normalize();
               state.flyTarget = pos.clone().add(dir.multiplyScalar(dist));
@@ -755,6 +856,7 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         }
       }
       renderer.domElement.addEventListener("pointerdown", onPointerDown);
+      renderer.domElement.addEventListener("pointerup", onPointerUp);
 
       // Interaction detection for auto-rotate pause
       let interacting = false;
@@ -833,15 +935,20 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
           aa.mesh.rotation.z += delta * 0.3;
         }
 
-        // Animate planets
+        // Animate planets — real orbital ratios + self-rotation
+        // Pause orbital animation during user interaction, resume after 3s idle
+        const orbitActive = !interacting || idleTime > 3;
         for (const pa of planetAnims) {
-          pa.angle += pa.speed * delta * 0.15;
-          pa.mesh.position.set(
-            SUN_POS.x + Math.cos(pa.angle) * pa.dist,
-            0,
-            SUN_POS.z + Math.sin(pa.angle) * pa.dist,
-          );
-          pa.mesh.rotation.y += delta * 0.3;
+          if (orbitActive) {
+            pa.angle += pa.speed * delta;
+            pa.mesh.position.set(
+              SUN_POS.x + Math.cos(pa.angle) * pa.dist,
+              0,
+              SUN_POS.z + Math.sin(pa.angle) * pa.dist,
+            );
+          }
+          // Self-rotation (capped to avoid excessive spin in scene)
+          pa.mesh.rotation.y += Math.min(pa.selfRotSpeed * delta, delta * 2);
         }
 
         // Pulse sun corona
@@ -860,12 +967,24 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
           sprite.visible = opacity > 0.05;
         }
 
-        // Pulse selected object
+        // Pulse selected object — only asteroids/probes, not earth/planets/sun/DSN
         if (state.selectedId) {
-          const sel = objectMap.get(state.selectedId);
-          if (sel) {
-            const s = 1 + Math.sin(elapsed * 5) * 0.15;
-            sel.scale.setScalar(s);
+          // Reset previous selected object scale
+          if (state.prevSelectedId && state.prevSelectedId !== state.selectedId) {
+            const prev = objectMap.get(state.prevSelectedId);
+            if (prev) prev.scale.set(1, 1, 1);
+            state.prevSelectedId = state.selectedId;
+          }
+          if (!state.prevSelectedId) state.prevSelectedId = state.selectedId;
+
+          const skipPulse = state.selectedId === "earth" || state.selectedId === "sun" || state.selectedId === "iss"
+            || state.selectedId.startsWith("planet-") || state.selectedId.startsWith("dsn-");
+          if (!skipPulse) {
+            const sel = objectMap.get(state.selectedId);
+            if (sel) {
+              const s = 1 + Math.sin(elapsed * 5) * 0.1;
+              sel.scale.setScalar(s);
+            }
           }
         }
 
@@ -911,6 +1030,7 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       return () => {
         cancelAnimationFrame(state.animId);
         renderer.domElement.removeEventListener("pointerdown", onPointerDown);
+        renderer.domElement.removeEventListener("pointerup", onPointerUp);
         renderer.domElement.removeEventListener("pointerdown", onInteractStart);
         renderer.domElement.removeEventListener("pointerup", onInteractEnd);
         document.removeEventListener("visibilitychange", handleVisibility);

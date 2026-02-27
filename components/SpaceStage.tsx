@@ -1039,6 +1039,88 @@ export default function SpaceStage() {
         }
       }
 
+      // === Hex grid (faint, behind everything) ===============================
+      if (!prefersReducedMotion && !isMobile()) {
+        bgCtx!.save();
+        bgCtx!.globalAlpha = 0.015;
+        bgCtx!.strokeStyle = "#00D4FF";
+        bgCtx!.lineWidth = 0.5;
+        const hexSize = 40;
+        const hexH = hexSize * Math.sqrt(3);
+        for (let row = -1; row < height / hexH + 1; row++) {
+          for (let col = -1; col < width / (hexSize * 1.5) + 1; col++) {
+            const cx = col * hexSize * 1.5;
+            const cy = row * hexH + (col % 2 === 1 ? hexH / 2 : 0);
+            bgCtx!.beginPath();
+            for (let s = 0; s < 6; s++) {
+              const a = (Math.PI / 3) * s;
+              const hx = cx + hexSize * 0.5 * Math.cos(a);
+              const hy = cy + hexSize * 0.5 * Math.sin(a);
+              if (s === 0) bgCtx!.moveTo(hx, hy);
+              else bgCtx!.lineTo(hx, hy);
+            }
+            bgCtx!.closePath();
+            bgCtx!.stroke();
+          }
+        }
+        bgCtx!.restore();
+      }
+
+      // === Binary rain (occasional "01" strings) ============================
+      if (!prefersReducedMotion && !isMobile()) {
+        bgCtx!.save();
+        bgCtx!.font = "10px monospace";
+        bgCtx!.fillStyle = "rgba(0,212,255,0.04)";
+        // Use deterministic positions based on elapsed time
+        const binaryCount = 8;
+        for (let bi = 0; bi < binaryCount; bi++) {
+          const bx = ((bi * 137 + Math.floor(elapsedMs / 8000) * 53) % width);
+          const by = ((elapsedMs * 0.02 * (0.5 + bi * 0.1)) % (height + 100)) - 50;
+          const bits = ((bi * 7 + Math.floor(elapsedMs / 200)) % 256).toString(2).padStart(8, '0');
+          bgCtx!.fillText(bits, bx, by);
+        }
+        bgCtx!.restore();
+      }
+
+      // === Corner radar sweep (bottom-left, green, subtle) ==================
+      if (!prefersReducedMotion && !isMobile()) {
+        bgCtx!.save();
+        const radarR = 60;
+        const radarX = 50;
+        const radarY = height - 50;
+        const sweepAngle = (elapsedMs * 0.001) % (Math.PI * 2);
+
+        // Radar circle
+        bgCtx!.globalAlpha = 0.03;
+        bgCtx!.strokeStyle = "#34D399";
+        bgCtx!.lineWidth = 1;
+        bgCtx!.beginPath();
+        bgCtx!.arc(radarX, radarY, radarR, 0, Math.PI * 2);
+        bgCtx!.stroke();
+        bgCtx!.beginPath();
+        bgCtx!.arc(radarX, radarY, radarR * 0.5, 0, Math.PI * 2);
+        bgCtx!.stroke();
+
+        // Sweep line
+        bgCtx!.globalAlpha = 0.08;
+        bgCtx!.beginPath();
+        bgCtx!.moveTo(radarX, radarY);
+        bgCtx!.lineTo(radarX + Math.cos(sweepAngle) * radarR, radarY + Math.sin(sweepAngle) * radarR);
+        bgCtx!.stroke();
+
+        // Fade trail
+        const trailGrad = bgCtx!.createConicGradient(sweepAngle - 0.5, radarX, radarY);
+        trailGrad.addColorStop(0, "rgba(52,211,153,0)");
+        trailGrad.addColorStop(0.08, "rgba(52,211,153,0.04)");
+        trailGrad.addColorStop(0.1, "rgba(52,211,153,0)");
+        bgCtx!.fillStyle = trailGrad;
+        bgCtx!.beginPath();
+        bgCtx!.arc(radarX, radarY, radarR, 0, Math.PI * 2);
+        bgCtx!.fill();
+
+        bgCtx!.restore();
+      }
+
       // === Data particles ====================================================
       if (!prefersReducedMotion) {
         for (const p of dataParticles) {

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Orbitron, Inter } from "next/font/google";
+import { Orbitron, Space_Grotesk, Fira_Code } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -8,6 +8,7 @@ import PageTransition from "@/components/PageTransition";
 import SpaceStage from "@/components/SpaceStage";
 import KonamiCode from "@/components/KonamiCode";
 import Ticker from "@/components/Ticker";
+import SpaceProSidebar from "@/components/SpaceProSidebar";
 import { getAllArticles } from "@/lib/content";
 
 const orbitron = Orbitron({
@@ -16,8 +17,14 @@ const orbitron = Orbitron({
   display: "swap",
 });
 
-const inter = Inter({
-  variable: "--font-inter",
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const firaCode = Fira_Code({
+  variable: "--font-fira-code",
   subsets: ["latin"],
   display: "swap",
 });
@@ -49,7 +56,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body
-        className={`${orbitron.variable} ${inter.variable} font-body antialiased bg-space-bg text-text-primary`}
+        className={`${orbitron.variable} ${spaceGrotesk.variable} ${firaCode.variable} font-body antialiased bg-space-bg text-text-primary`}
       >
         <TerminalBoot />
         <SpaceStage />
@@ -57,7 +64,10 @@ export default function RootLayout({
         <KonamiCode />
         <div className="relative z-10 nebula-bg min-h-screen flex flex-col">
           <Header />
-          <main className="flex-1">{children}</main>
+          <div className="flex flex-1">
+            <main className="flex-1 lg:mr-[320px]">{children}</main>
+            <SpaceProSidebar />
+          </div>
           <Footer />
         </div>
         <Ticker articles={articles} compact />

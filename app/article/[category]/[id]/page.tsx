@@ -171,6 +171,19 @@ export default async function ArticlePage({ params }: PageProps) {
               )}
             </div>
 
+            {/* YouTube embed from frontmatter videoUrl */}
+            {article.videoUrl && (() => {
+              const match = article.videoUrl!.match(
+                /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/))([a-zA-Z0-9_-]{11})/
+              );
+              const videoId = match?.[1];
+              return videoId ? (
+                <div className="article-enter-delay-2">
+                  <YouTubeEmbed id={videoId} title={article.title} />
+                </div>
+              ) : null;
+            })()}
+
             {/* MDX content */}
             <div className="article-enter-delay-3 article-prose max-w-none">
               <MDXRemote source={article.content} components={{ YouTubeEmbed }} />

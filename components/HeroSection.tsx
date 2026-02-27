@@ -2,12 +2,14 @@
 
 import { useRef, useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowRight, Clock, Satellite, Hand } from "lucide-react";
+import { ArrowRight, Clock, Satellite, Hand, Globe2 } from "lucide-react";
 import Globe from "./Globe";
+import GlobeQuiz from "./GlobeQuiz";
 import type { GlobeHandle } from "./GlobeWrapper";
 import type { Article } from "@/lib/types";
 import { CATEGORY_LABELS, CATEGORY_COLORS } from "@/lib/types";
 import { formatDistanceToNow } from "@/lib/utils";
+import { playSound } from "@/lib/sounds";
 
 interface HeroSectionProps {
   featured: Article;
@@ -19,9 +21,11 @@ export default function HeroSection({
   latestPerCategory = [],
 }: HeroSectionProps) {
   const globeContainerRef = useRef<HTMLDivElement>(null);
+  const globeRef = useRef<GlobeHandle>(null);
   const [globeSize, setGlobeSize] = useState(600);
   const [globeInteracting, setGlobeInteracting] = useState(false);
   const [showGrabHint, setShowGrabHint] = useState(false);
+  const [quizMode, setQuizMode] = useState(false);
   const interactTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -80,6 +84,7 @@ export default function HeroSection({
             }`}
           >
             <Globe
+              ref={globeRef}
               pins={[]}
               width={globeSize}
               height={typeof window !== "undefined" && window.innerWidth < 768 ? mobileGlobeHeight : globeSize}
@@ -95,6 +100,30 @@ export default function HeroSection({
             </div>
           )}
         </div>
+
+        {/* Geography Quiz toggle + quiz panel */}
+        <div className="flex justify-center mb-4">
+          <button
+            onClick={() => {
+              playSound("click");
+              setQuizMode(!quizMode);
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent-cyan/10 border border-accent-cyan/30 text-accent-cyan text-sm font-mono hover:bg-accent-cyan/20 transition-colors cursor-pointer hacker-glow"
+          >
+            <Globe2 className="w-4 h-4" />
+            {quizMode ? "Close Quiz" : "Geography Quiz"}
+          </button>
+        </div>
+        {quizMode && (
+          <div className="mb-8">
+            <GlobeQuiz
+              onFlyTo={(lat, lon) => {
+                globeRef.current?.focusOn({ lat, lon, name: "", countryCode: "" });
+              }}
+              onClose={() => setQuizMode(false)}
+            />
+          </div>
+        )}
 
         {/* Featured article — centered below globe */}
         <div className="max-w-3xl mx-auto text-center space-y-5 mb-12">

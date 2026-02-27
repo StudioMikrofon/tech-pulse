@@ -5,7 +5,7 @@
 // buffers. No external audio files are required.
 // ---------------------------------------------------------------------------
 
-type SoundName = 'hover' | 'click' | 'transition' | 'boot' | 'success' | 'dataStream' | 'ping' | 'ambient';
+type SoundName = 'hover' | 'click' | 'transition' | 'boot' | 'success' | 'dataStream' | 'ping' | 'ambient' | 'whoosh' | 'alert' | 'quizCorrect' | 'quizWrong';
 
 const STORAGE_KEY = 'tp-sound';
 const MASTER_VOLUME = 0.1;
@@ -271,5 +271,74 @@ const sounds: Record<SoundName, (audio: AudioContext) => void> = {
 
     scheduleOsc(audio, gain, 'sine', 60, now, duration);
     scheduleOsc(audio, gain, 'sine', 62, now, duration);
+  },
+
+  // 9. Whoosh — camera fly-to: noise sweep 200→4000Hz (0.3s)
+  whoosh(audio) {
+    const now = audio.currentTime;
+    const duration = 0.3;
+
+    const bufferSize = Math.floor(audio.sampleRate * duration);
+    const buffer = audio.createBuffer(1, bufferSize, audio.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = Math.random() * 2 - 1;
+    }
+
+    const noise = audio.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = audio.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.Q.value = 2;
+    filter.frequency.setValueAtTime(200, now);
+    filter.frequency.exponentialRampToValueAtTime(4000, now + duration);
+
+    const gain = masterGain(audio, 0.1);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.1, now + 0.05);
+    gain.gain.linearRampToValueAtTime(0, now + duration);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    noise.start(now);
+    noise.stop(now + duration);
+  },
+
+  // 10. Alert — hazardous asteroid: two-tone pulsing alarm (0.4s)
+  alert(audio) {
+    const now = audio.currentTime;
+    const gain = masterGain(audio, 0.08);
+    gain.gain.setValueAtTime(0.08, now);
+    gain.gain.linearRampToValueAtTime(0, now + 0.4);
+
+    // Alternating tones
+    for (let i = 0; i < 4; i++) {
+      const t = now + i * 0.1;
+      const freq = i % 2 === 0 ? 880 : 660;
+      scheduleOsc(audio, gain, 'square', freq, t, 0.08);
+    }
+  },
+
+  // 11. Quiz Correct — ascending major chord chime C-E-G (0.2s)
+  quizCorrect(audio) {
+    const now = audio.currentTime;
+    const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
+    notes.forEach((freq, i) => {
+      const start = now + i * 0.06;
+      const gain = masterGain(audio, 0.1);
+      gain.gain.setValueAtTime(0.1, start);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.15);
+      scheduleOsc(audio, gain, 'sine', freq, start, 0.15);
+    });
+  },
+
+  // 12. Quiz Wrong — descending minor buzz (0.15s)
+  quizWrong(audio) {
+    const now = audio.currentTime;
+    const gain = masterGain(audio, 0.08);
+    gain.gain.setValueAtTime(0.08, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+    scheduleOsc(audio, gain, 'sawtooth', 300, now, 0.15, 150);
   },
 };

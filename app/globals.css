@@ -4,7 +4,8 @@
   --background: #05070D;
   --foreground: #EAF0FF;
   --font-heading: var(--font-orbitron);
-  --font-body: var(--font-inter);
+  --font-body: var(--font-space-grotesk);
+  --font-mono: var(--font-fira-code);
 }
 
 @theme inline {
@@ -12,6 +13,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-body);
   --font-heading: var(--font-heading);
+  --font-mono: var(--font-mono);
 
   /* Space colors */
   --color-space-bg: #05070D;
@@ -178,7 +180,7 @@ body {
    Terminal text effect
    ========================================================================= */
 .terminal-text {
-  font-family: "Courier New", "Lucida Console", monospace;
+  font-family: var(--font-mono), "Courier New", monospace;
   letter-spacing: 0.12em;
 }
 
@@ -571,4 +573,82 @@ body {
 .animate-waveform-bar {
   animation: waveform-bar 0.6s ease-in-out infinite;
   transform-origin: bottom;
+}
+
+/* =========================================================================
+   Hacker FX
+   ========================================================================= */
+
+/* Subtle cyan glow on interactive hover */
+.hacker-glow {
+  transition: text-shadow 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hacker-glow:hover {
+  text-shadow: 0 0 8px rgba(0, 212, 255, 0.3), 0 0 16px rgba(0, 212, 255, 0.1);
+}
+
+/* Scanline overlay — very subtle horizontal lines */
+.scanline-overlay {
+  position: relative;
+}
+
+.scanline-overlay::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 212, 255, 0.015) 2px,
+    rgba(0, 212, 255, 0.015) 4px
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Terminal cursor blink */
+@keyframes terminal-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.terminal-cursor::after {
+  content: "\2588";
+  animation: terminal-blink 1s step-end infinite;
+  color: #00D4FF;
+  margin-left: 2px;
+}
+
+/* Glitch effect for page transitions */
+@keyframes glitch-shift {
+  0% { transform: translate(0); filter: none; }
+  20% { transform: translate(-2px, 1px); filter: hue-rotate(90deg); }
+  40% { transform: translate(2px, -1px); filter: hue-rotate(-90deg); }
+  60% { transform: translate(-1px, -1px); filter: hue-rotate(45deg); }
+  80% { transform: translate(1px, 1px); filter: none; }
+  100% { transform: translate(0); filter: none; }
+}
+
+.glitch-fx {
+  animation: glitch-shift 0.3s ease-out;
+}
+
+/* Hacker card glow border on hover */
+.hacker-card-glow:hover {
+  box-shadow: 0 0 20px rgba(0, 212, 255, 0.08), inset 0 0 20px rgba(0, 212, 255, 0.03);
+  border-color: rgba(0, 212, 255, 0.2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .terminal-cursor::after {
+    animation: none;
+  }
+  .glitch-fx {
+    animation: none;
+  }
+  .scanline-overlay::after {
+    display: none;
+  }
 }

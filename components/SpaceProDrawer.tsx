@@ -21,6 +21,7 @@ const SpaceTrackerModal = dynamic(() => import("./SpaceTrackerModal"), { ssr: fa
 interface SpaceProDrawerProps {
   open: boolean;
   onClose: () => void;
+  persistent?: boolean;
 }
 
 const INFO_TEXTS: Record<string, string> = {
@@ -101,7 +102,7 @@ function InfoPanel({ id, expandedInfo }: { id: string; expandedInfo: string | nu
   );
 }
 
-export default function SpaceProDrawer({ open, onClose }: SpaceProDrawerProps) {
+export default function SpaceProDrawer({ open, onClose, persistent = false }: SpaceProDrawerProps) {
   const { data } = useSpaceProData();
   const drawerRef = useRef<HTMLDivElement>(null);
   const [expandedInfo, setExpandedInfo] = useState<string | null>(null);
@@ -126,16 +127,16 @@ export default function SpaceProDrawer({ open, onClose }: SpaceProDrawerProps) {
   );
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || persistent) return;
     document.addEventListener("keydown", handleEscape);
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("keydown", handleEscape);
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [open, handleEscape, handleClickOutside]);
+  }, [open, handleEscape, handleClickOutside, persistent]);
 
-  if (!open) return null;
+  if (!open && !persistent) return null;
 
   const auroraColors: Record<string, string> = {
     none: "#A7B3D1",
@@ -144,6 +145,42 @@ export default function SpaceProDrawer({ open, onClose }: SpaceProDrawerProps) {
     high: "#F87171",
     storm: "#EF4444",
   };
+
+  // Persistent desktop sidebar
+  if (persistent) {
+    return (
+      <>
+        <div
+          ref={drawerRef}
+          className="h-full w-[320px] bg-space-bg/80 border-l border-white/10 overflow-y-auto"
+        >
+          {/* Header */}
+          <div className="sticky top-0 z-10 bg-space-bg/90 backdrop-blur-md border-b border-white/10 px-4 py-3">
+            <h2 className="font-heading text-base font-bold text-text-primary">
+              Space Pro
+            </h2>
+            <p className="text-xs text-text-secondary font-mono">
+              // Telemetrija uživo
+            </p>
+          </div>
+
+          {/* Cards */}
+          <div className="p-4 space-y-3">
+            {renderCards()}
+          </div>
+        </div>
+
+        {/* Space Tracker Modal */}
+        {trackerMode && (
+          <SpaceTrackerModal
+            mode={trackerMode}
+            open={true}
+            onClose={() => setTrackerMode(null)}
+          />
+        )}
+      </>
+    );
+  }
 
   return (
     <>
@@ -176,6 +213,24 @@ export default function SpaceProDrawer({ open, onClose }: SpaceProDrawerProps) {
 
         {/* Cards */}
         <div className="p-5 space-y-4">
+          {renderCards()}
+        </div>
+      </div>
+
+      {/* Space Tracker Modal */}
+      {trackerMode && (
+        <SpaceTrackerModal
+          mode={trackerMode}
+          open={true}
+          onClose={() => setTrackerMode(null)}
+        />
+      )}
+    </>
+  );
+
+  function renderCards() {
+    return (
+      <>
           {/* 1. Sunčeva Aktivnost */}
           <div className="glass-card p-4 space-y-3 !hover:transform-none">
             <div className="flex items-center gap-2">
@@ -455,17 +510,7 @@ export default function SpaceProDrawer({ open, onClose }: SpaceProDrawerProps) {
               📍 {data.light.location}
             </p>
           </div>
-        </div>
-      </div>
-
-      {/* Space Tracker Modal */}
-      {trackerMode && (
-        <SpaceTrackerModal
-          mode={trackerMode}
-          open={true}
-          onClose={() => setTrackerMode(null)}
-        />
-      )}
-    </>
-  );
+      </>
+    );
+  }
 }
