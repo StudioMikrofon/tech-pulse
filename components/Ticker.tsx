@@ -1,3 +1,6 @@
+"use client";
+
+import { useRef, useEffect } from "react";
 import Link from "next/link";
 import { Zap } from "lucide-react";
 import type { Article } from "@/lib/types";
@@ -8,14 +11,35 @@ interface TickerProps {
 }
 
 export default function Ticker({ articles }: TickerProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const track = trackRef.current;
+    const container = containerRef.current;
+    if (!track || !container) return;
+
+    function calcDuration() {
+      const scrollW = track!.scrollWidth;
+      const pxPerSec = window.innerWidth < 768 ? 20 : 25;
+      const duration = scrollW / pxPerSec;
+      container!.style.setProperty("--ticker-duration", duration + "s");
+    }
+
+    // Wait a frame for layout to settle
+    requestAnimationFrame(calcDuration);
+    window.addEventListener("resize", calcDuration);
+    return () => window.removeEventListener("resize", calcDuration);
+  }, [articles]);
+
   if (articles.length === 0) return null;
 
   // Duplicate for seamless loop
   const items = [...articles, ...articles];
 
   return (
-    <div className="ticker-container border-y border-white/5 overflow-hidden py-3 my-8">
-      <div className="ticker-track">
+    <div ref={containerRef} className="ticker-container border-y border-white/5 overflow-hidden py-3 my-8">
+      <div ref={trackRef} className="ticker-track">
         {items.map((article, i) => (
           <Link
             key={`${article.id}-${i}`}

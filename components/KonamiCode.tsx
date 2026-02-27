@@ -45,7 +45,7 @@ export default function KonamiCode() {
     <>
       {/* Hue-rotate filter on starfield canvas */}
       <style jsx global>{`
-        canvas[aria-hidden="true"] {
+        #space-stage-canvas {
           filter: hue-rotate(90deg) saturate(2) !important;
           transition: filter 0.5s ease;
         }

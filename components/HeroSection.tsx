@@ -88,7 +88,7 @@ export default function HeroSection({
         <div className="block lg:hidden mb-8">
           <div
             ref={globeContainerRef}
-            className="relative min-h-[350px] flex items-center justify-center cursor-grab active:cursor-grabbing"
+            className="relative min-h-[400px] flex items-center justify-center cursor-grab active:cursor-grabbing"
             onMouseDown={handleGlobeInteract}
             onMouseUp={handleGlobeRelease}
             onTouchStart={handleGlobeInteract}

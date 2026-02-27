@@ -2,13 +2,17 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Menu, X, Volume2, VolumeX } from "lucide-react";
+import { Menu, X, Volume2, VolumeX, Telescope } from "lucide-react";
 import { CATEGORIES, CATEGORY_LABELS } from "@/lib/types";
 import { playSound, isSoundEnabled, setSoundEnabled } from "@/lib/sounds";
+import dynamic from "next/dynamic";
+
+const SpaceProDrawer = dynamic(() => import("./SpaceProDrawer"), { ssr: false });
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
+  const [spaceProOpen, setSpaceProOpen] = useState(false);
 
   useEffect(() => {
     setSoundOn(isSoundEnabled());
@@ -50,6 +54,17 @@ export default function Header() {
               {CATEGORY_LABELS[cat]}
             </Link>
           ))}
+          <button
+            onClick={() => {
+              playSound("click");
+              setSpaceProOpen(true);
+            }}
+            onMouseEnter={() => playSound("hover")}
+            className="px-3 py-1.5 text-sm text-accent-cyan hover:text-text-primary hover:bg-accent-cyan/10 rounded-lg transition-colors border border-accent-cyan/20 hover:border-accent-cyan/40 flex items-center gap-1.5 ml-2"
+          >
+            <Telescope className="w-3.5 h-3.5" />
+            Space Pro
+          </button>
         </nav>
 
         <div className="flex items-center gap-1">
@@ -88,6 +103,7 @@ export default function Header() {
           ))}
         </nav>
       )}
+      <SpaceProDrawer open={spaceProOpen} onClose={() => setSpaceProOpen(false)} />
     </header>
   );
 }

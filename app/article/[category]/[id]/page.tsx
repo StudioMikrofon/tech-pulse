@@ -16,6 +16,7 @@ import ArticleGlobeBackground from "@/components/ArticleGlobeBackground";
 import SolarSystemBackground from "@/components/SolarSystemBackground";
 import Comments from "@/components/Comments";
 import YouTubeEmbed from "@/components/YouTubeEmbed";
+import GlobeModal from "@/components/GlobeModal";
 import type { Metadata } from "next";
 
 interface PageProps {
@@ -224,6 +225,20 @@ export default async function ArticlePage({ params }: PageProps) {
           </aside>
         </div>
       </article>
+      {article.geo && (
+        <GlobeModal
+          pins={[
+            {
+              lat: article.geo.lat,
+              lng: article.geo.lon,
+              label: article.geo.name,
+              color: CATEGORY_COLORS[article.category],
+              id: "article-location",
+            },
+          ]}
+          initialGeo={article.geo}
+        />
+      )}
     </>
   );
 }

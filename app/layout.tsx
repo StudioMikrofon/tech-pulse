@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, Inter } from "next/font/google";
 import "./globals.css";
-import Starfield from "@/components/Starfield";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import TerminalBoot from "@/components/TerminalBoot";
 import PageTransition from "@/components/PageTransition";
-import SpaceOverlay from "@/components/SpaceOverlay";
+import SpaceStage from "@/components/SpaceStage";
 import KonamiCode from "@/components/KonamiCode";
 
 const spaceGrotesk = Space_Grotesk({
@@ -49,9 +48,8 @@ export default function RootLayout({
         className={`${spaceGrotesk.variable} ${inter.variable} font-body antialiased bg-space-bg text-text-primary`}
       >
         <TerminalBoot />
-        <Starfield />
+        <SpaceStage />
         <PageTransition />
-        <SpaceOverlay />
         <KonamiCode />
         <div className="relative z-10 nebula-bg min-h-screen flex flex-col">
           <Header />

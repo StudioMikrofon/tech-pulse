@@ -19,7 +19,7 @@ export default function ArticleGlobeBackground({
 
   useEffect(() => {
     function updateSize() {
-      setGlobeSize(Math.max(window.innerWidth, window.innerHeight) * 0.85);
+      setGlobeSize(Math.max(window.innerWidth, window.innerHeight) * 1.15);
     }
     updateSize();
     window.addEventListener("resize", updateSize);
@@ -45,7 +45,7 @@ export default function ArticleGlobeBackground({
   ];
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center pointer-events-none opacity-15 z-[1]">
+    <div className="fixed inset-0 flex items-center justify-center pointer-events-none opacity-[0.22] z-[1]">
       <div className="globe-glow">
         <Globe
           ref={globeRef}
