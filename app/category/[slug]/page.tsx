@@ -8,6 +8,8 @@ import {
   type Category,
 } from "@/lib/types";
 import ArticleGrid from "@/components/ArticleGrid";
+import CategoryBanner from "@/components/CategoryBanner";
+import CategoryLoadingTerminal from "@/components/CategoryLoadingTerminal";
 import type { Metadata } from "next";
 
 interface PageProps {
@@ -52,6 +54,9 @@ export default async function CategoryPage({ params }: PageProps) {
         <ArrowLeft className="w-4 h-4" />
         Back to Home
       </Link>
+
+      <CategoryBanner category={category} />
+      <CategoryLoadingTerminal category={category} />
 
       <div className="mb-8">
         <span

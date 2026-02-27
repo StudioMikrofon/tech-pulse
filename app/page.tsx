@@ -45,8 +45,6 @@ export default function HomePage() {
         </h2>
         <ArticleGrid articles={gridArticles} />
       </section>
-      {/* Sticky footer ticker */}
-      <Ticker articles={articles} compact />
     </>
   );
 }

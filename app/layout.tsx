@@ -7,6 +7,8 @@ import TerminalBoot from "@/components/TerminalBoot";
 import PageTransition from "@/components/PageTransition";
 import SpaceStage from "@/components/SpaceStage";
 import KonamiCode from "@/components/KonamiCode";
+import Ticker from "@/components/Ticker";
+import { getAllArticles } from "@/lib/content";
 
 const orbitron = Orbitron({
   variable: "--font-orbitron",
@@ -42,6 +44,8 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const articles = getAllArticles();
+
   return (
     <html lang="en" className="dark">
       <body
@@ -56,6 +60,7 @@ export default function RootLayout({
           <main className="flex-1">{children}</main>
           <Footer />
         </div>
+        <Ticker articles={articles} compact />
       </body>
     </html>
   );

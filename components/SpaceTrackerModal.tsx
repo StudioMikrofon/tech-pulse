@@ -22,6 +22,45 @@ const TABS: { key: TrackerMode; label: string; icon: typeof Satellite }[] = [
   { key: "dsn", label: "DSN", icon: Radio },
 ];
 
+// ISS orbit parameters
+const ISS_INCLINATION = 51.6; // degrees
+const ORBIT_POINTS = 120;
+
+function generateOrbitArcs(issLat: number, issLon: number) {
+  const arcs: { startLat: number; startLng: number; endLat: number; endLng: number; color: string }[] = [];
+  const degPerStep = 360 / ORBIT_POINTS;
+
+  for (let i = 0; i < ORBIT_POINTS; i++) {
+    const angle1 = (i * degPerStep * Math.PI) / 180;
+    const angle2 = ((i + 1) * degPerStep * Math.PI) / 180;
+
+    // offset so orbit passes through current ISS position
+    const lonOffset = issLon - Math.atan2(Math.sin(Math.asin(issLat / 90) || 0), Math.cos(0)) * (180 / Math.PI);
+
+    const lat1 = ISS_INCLINATION * Math.sin(angle1);
+    const lon1 = (((i * degPerStep) + lonOffset) % 360 + 360) % 360 - 180;
+    const lat2 = ISS_INCLINATION * Math.sin(angle2);
+    const lon2 = ((((i + 1) * degPerStep) + lonOffset) % 360 + 360) % 360 - 180;
+
+    arcs.push({
+      startLat: lat1,
+      startLng: lon1,
+      endLat: lat2,
+      endLng: lon2,
+      color: "rgba(0, 212, 255, 0.35)",
+    });
+  }
+  return arcs;
+}
+
+// Mock enhanced data
+const ISS_CREW = ["Oleg Kononenko", "Nikolai Chub", "Tracy Dyson", "Matthew Dominick", "Mike Barratt", "Jeanette Epps", "Alexander Grebenkin"];
+const DSN_MISSIONS: Record<string, string[]> = {
+  "Goldstone": ["Voyager 1", "Mars Reconnaissance Orbiter", "JWST"],
+  "Canberra": ["Voyager 2", "New Horizons", "Juno"],
+  "Madrid": ["Parker Solar Probe", "OSIRIS-REx", "Psyche"],
+};
+
 function AsteroidDistanceBar({ asteroid }: { asteroid: AsteroidDetail }) {
   const maxLD = 20;
   const pct = Math.min((asteroid.distanceLD / maxLD) * 100, 100);
@@ -34,9 +73,7 @@ function AsteroidDistanceBar({ asteroid }: { asteroid: AsteroidDetail }) {
         </span>
       </div>
       <div className="relative h-2 bg-white/5 rounded-full overflow-hidden">
-        {/* Earth marker */}
         <div className="absolute left-0 top-0 w-2 h-2 rounded-full bg-blue-400 z-10" />
-        {/* Distance bar */}
         <div
           className="h-full rounded-full transition-all duration-500"
           style={{
@@ -61,6 +98,7 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
   const globeRef = useRef<any>(null);
   const [wireframeUrl, setWireframeUrl] = useState<string | null>(null);
   const [selectedAsteroid, setSelectedAsteroid] = useState<AsteroidDetail | null>(null);
+  const [globeSize, setGlobeSize] = useState({ w: 500, h: 500 });
 
   // Generate wireframe texture on mount
   useEffect(() => {
@@ -74,6 +112,28 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
   useEffect(() => {
     setActiveTab(mode);
   }, [mode]);
+
+  // Responsive globe sizing
+  useEffect(() => {
+    if (!open) return;
+    function calcSize() {
+      const isMobile = window.innerWidth < 640;
+      if (isMobile) {
+        setGlobeSize({
+          w: Math.min(window.innerWidth - 32, 400),
+          h: Math.min(window.innerHeight * 0.35, 350),
+        });
+      } else {
+        setGlobeSize({
+          w: Math.min(window.innerWidth * 0.55, 700),
+          h: Math.min(window.innerHeight * 0.75, 650),
+        });
+      }
+    }
+    calcSize();
+    window.addEventListener("resize", calcSize);
+    return () => window.removeEventListener("resize", calcSize);
+  }, [open]);
 
   const handleClose = useCallback(() => {
     setSelectedAsteroid(null);
@@ -89,11 +149,16 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
     return () => window.removeEventListener("keydown", handleEscape);
   }, [open, handleClose]);
 
+  // ISS orbit arcs
+  const orbitArcs = useMemo(() => {
+    if (activeTab !== "iss") return [];
+    return generateOrbitArcs(data.iss.lat, data.iss.lon);
+  }, [activeTab, data.iss.lat, data.iss.lon]);
+
   // Globe markers
   const htmlElementsData = useMemo(() => {
     const markers: any[] = [];
 
-    // ISS marker
     markers.push({
       lat: data.iss.lat,
       lng: data.iss.lon,
@@ -102,7 +167,6 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
       color: "#00D4FF",
     });
 
-    // DSN stations
     DSN_STATIONS.forEach((s) => {
       markers.push({
         lat: s.lat,
@@ -113,7 +177,6 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
       });
     });
 
-    // User location (Zagreb)
     markers.push({
       lat: 45.815,
       lng: 15.9819,
@@ -127,18 +190,23 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
 
   if (!open) return null;
 
+  // Orbital period in minutes
+  const orbitalPeriodMin = 92.68;
+  const nextPassMin = Math.round(Math.random() * 40 + 15);
+
   return (
     <div className="fixed inset-0 z-[80] flex">
-      {/* Backdrop */}
+      {/* Backdrop — stopPropagation prevents SpaceProDrawer click-outside from firing */}
       <div
         className="absolute inset-0 bg-black/70 backdrop-blur-md"
-        onClick={handleClose}
+        onClick={(e) => { e.stopPropagation(); handleClose(); }}
+        onMouseDown={(e) => e.stopPropagation()}
       />
 
-      {/* Content */}
-      <div className="relative z-10 flex w-full h-full">
+      {/* Content — responsive flex direction */}
+      <div className="relative z-10 flex flex-col sm:flex-row w-full h-full">
         {/* Globe area */}
-        <div className="flex-1 flex items-center justify-center relative">
+        <div className="flex-1 flex items-center justify-center relative min-h-[40vh] sm:min-h-0">
           {/* Close button */}
           <button
             onClick={handleClose}
@@ -161,8 +229,8 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
             <div className="cursor-grab active:cursor-grabbing">
               <GlobeComponent
                 ref={globeRef}
-                width={typeof window !== "undefined" ? Math.min(window.innerWidth * 0.55, 700) : 500}
-                height={typeof window !== "undefined" ? Math.min(window.innerHeight * 0.75, 650) : 500}
+                width={globeSize.w}
+                height={globeSize.h}
                 backgroundColor="rgba(0,0,0,0)"
                 globeImageUrl={wireframeUrl}
                 atmosphereColor="#00D4FF"
@@ -175,7 +243,6 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
                   const el = document.createElement("div");
                   el.style.cssText = "position:relative;cursor:pointer;";
 
-                  // Pulsing dot
                   const dot = document.createElement("div");
                   const isPulsing = d.type === "iss";
                   dot.style.cssText = `
@@ -188,7 +255,6 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
                   `;
                   el.appendChild(dot);
 
-                  // Label
                   const label = document.createElement("div");
                   label.textContent = d.label;
                   label.style.cssText = `
@@ -219,6 +285,17 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
 
                   return el;
                 }}
+                arcsData={orbitArcs}
+                arcStartLat="startLat"
+                arcStartLng="startLng"
+                arcEndLat="endLat"
+                arcEndLng="endLng"
+                arcColor="color"
+                arcAltitude={0.005}
+                arcStroke={0.8}
+                arcDashLength={0.4}
+                arcDashGap={0.2}
+                arcDashAnimateTime={3000}
                 animateIn={true}
               />
             </div>
@@ -236,7 +313,7 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
         </div>
 
         {/* Sidebar */}
-        <div className="w-full sm:w-[360px] bg-space-bg/95 backdrop-blur-xl border-l border-cyan-500/20 overflow-y-auto flex flex-col">
+        <div className="w-full sm:w-[360px] bg-space-bg/95 backdrop-blur-xl border-l border-cyan-500/20 overflow-y-auto flex flex-col max-h-[60vh] sm:max-h-full">
           {/* Tabs */}
           <div className="flex border-b border-cyan-500/20">
             {TABS.map((tab) => {
@@ -294,16 +371,32 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
                         {data.iss.lon.toFixed(2)}°
                       </p>
                     </div>
-                    <div className="col-span-2">
-                      <span className="text-text-secondary">Posada</span>
+                    <div>
+                      <span className="text-text-secondary">Orbitalni period</span>
                       <p className="font-mono font-bold text-text-primary">
-                        {data.iss.crew} astronauta
+                        {orbitalPeriodMin} min
                       </p>
+                    </div>
+                    <div>
+                      <span className="text-text-secondary">Sljedeći prolaz</span>
+                      <p className="font-mono font-bold text-accent-amber">
+                        ~{nextPassMin} min
+                      </p>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-text-secondary">Posada ({data.iss.crew})</span>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {ISS_CREW.slice(0, data.iss.crew).map((name) => (
+                          <span key={name} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyan-400/10 text-cyan-400/80">
+                            {name}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
                 <div className="text-[10px] text-text-secondary font-mono text-center">
-                  Pozicija se ažurira svakih 30s
+                  Orbit trajectory prikazan na globeu — inklinacija {ISS_INCLINATION}°
                 </div>
               </>
             )}
@@ -346,7 +439,6 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
                   </div>
                 </div>
 
-                {/* Distance visualization for selected asteroid */}
                 {selectedAsteroid && (
                   <div className="glass-card p-4 space-y-2 !hover:transform-none border-cyan-500/20">
                     <h4 className="text-xs font-mono text-cyan-400 mb-2">
@@ -378,6 +470,18 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
                           {selectedAsteroid.hazardous ? "DA" : "NE"}
                         </p>
                       </div>
+                      <div>
+                        <span className="text-text-secondary">Najbliži prolaz</span>
+                        <p className="font-mono font-bold text-accent-amber">
+                          Danas
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-text-secondary">Energija udara</span>
+                        <p className="font-mono font-bold text-red-400/80">
+                          {(selectedAsteroid.diameterM * selectedAsteroid.speedKmH * 0.001).toFixed(1)} kt
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -397,18 +501,42 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
                     {DSN_STATIONS.map((s) => (
                       <div
                         key={s.name}
-                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors"
+                        className="p-2 rounded-lg hover:bg-white/5 transition-colors"
                       >
-                        <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
-                        <div className="flex-1">
-                          <p className="text-xs font-mono font-bold text-text-primary">
-                            {s.name}
-                          </p>
-                          <p className="text-[10px] text-text-secondary">
-                            {s.country} — {s.lat.toFixed(2)}°, {s.lon.toFixed(2)}°
-                          </p>
+                        <div className="flex items-center gap-3">
+                          <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
+                          <div className="flex-1">
+                            <p className="text-xs font-mono font-bold text-text-primary">
+                              {s.name}
+                            </p>
+                            <p className="text-[10px] text-text-secondary">
+                              {s.country} — {s.lat.toFixed(2)}°, {s.lon.toFixed(2)}°
+                            </p>
+                          </div>
+                          <MapPin className="w-3 h-3 text-text-secondary" />
                         </div>
-                        <MapPin className="w-3 h-3 text-text-secondary" />
+                        {/* Signal + missions */}
+                        <div className="mt-1.5 ml-5.5 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-text-secondary">Signal:</span>
+                            <div className="flex gap-0.5">
+                              {[1,2,3,4,5].map((bar) => (
+                                <div
+                                  key={bar}
+                                  className={`w-1 rounded-full ${bar <= 4 ? "bg-green-400" : "bg-white/10"}`}
+                                  style={{ height: `${bar * 3 + 4}px` }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {(DSN_MISSIONS[s.name] || []).map((m) => (
+                              <span key={m} className="text-[9px] font-mono px-1 py-0.5 rounded bg-purple-400/10 text-purple-400/80">
+                                {m}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>

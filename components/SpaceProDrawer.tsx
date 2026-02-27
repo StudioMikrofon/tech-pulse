@@ -116,11 +116,13 @@ export default function SpaceProDrawer({ open, onClose }: SpaceProDrawerProps) {
 
   const handleClickOutside = useCallback(
     (e: MouseEvent) => {
+      // Don't close drawer when SpaceTrackerModal is open
+      if (trackerMode !== null) return;
       if (drawerRef.current && !drawerRef.current.contains(e.target as Node)) {
         onClose();
       }
     },
-    [onClose]
+    [onClose, trackerMode]
   );
 
   useEffect(() => {
