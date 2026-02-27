@@ -32,7 +32,7 @@ export default function HeroSection({
     function updateSize() {
       if (globeContainerRef.current) {
         const w = globeContainerRef.current.clientWidth;
-        setGlobeSize(Math.min(w, 700));
+        setGlobeSize(Math.min(w, 900));
       }
     }
     updateSize();
@@ -80,134 +80,95 @@ export default function HeroSection({
     }
   };
 
+  const mobileGlobeHeight = 420;
+
   return (
     <section className="relative overflow-hidden">
-      {/* Main 2-column grid: text left, globe right */}
-      <div className="max-w-7xl mx-auto px-4 py-8 lg:py-16 w-full">
-        {/* Mobile: globe shows ABOVE text */}
-        <div className="block lg:hidden mb-8">
+      <div className="max-w-7xl mx-auto px-4 py-8 lg:py-12 w-full">
+        {/* Globe — full-width, centered, focus of the page */}
+        <div
+          ref={globeContainerRef}
+          className="relative flex items-center justify-center cursor-grab active:cursor-grabbing mb-8"
+          onMouseDown={handleGlobeInteract}
+          onMouseUp={handleGlobeRelease}
+          onTouchStart={handleGlobeInteract}
+          onTouchEnd={handleGlobeRelease}
+        >
           <div
-            ref={globeContainerRef}
-            className="relative min-h-[400px] flex items-center justify-center cursor-grab active:cursor-grabbing"
-            onMouseDown={handleGlobeInteract}
-            onMouseUp={handleGlobeRelease}
-            onTouchStart={handleGlobeInteract}
-            onTouchEnd={handleGlobeRelease}
+            className={`globe-glow transition-opacity duration-500 ${
+              globeInteracting ? "globe-interacting opacity-100" : "opacity-70"
+            }`}
           >
-            <div
-              className={`globe-glow transition-opacity duration-500 ${
-                globeInteracting ? "globe-interacting opacity-100" : "opacity-70"
-              }`}
-            >
-              <Globe
-                ref={globeRef}
-                pins={pins}
-                width={globeSize}
-                height={350}
-                autoRotate={true}
-                enableZoom={true}
-                initialAltitude={2.0}
-              />
+            <Globe
+              ref={globeRef}
+              pins={pins}
+              width={globeSize}
+              height={typeof window !== "undefined" && window.innerWidth < 768 ? mobileGlobeHeight : globeSize}
+              autoRotate={true}
+              enableZoom={true}
+              initialAltitude={1.5}
+            />
+          </div>
+          {showGrabHint && (
+            <div className="grab-hint absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 text-xs text-accent-cyan/60 font-mono pointer-events-none">
+              <Hand className="w-4 h-4" />
+              <span>Drag to explore</span>
             </div>
-            {showGrabHint && (
-              <div className="grab-hint absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 text-xs text-accent-cyan/60 font-mono pointer-events-none">
-                <Hand className="w-4 h-4" />
-                <span>Drag to explore</span>
-              </div>
+          )}
+        </div>
+
+        {/* Featured article — centered below globe */}
+        <div className="max-w-3xl mx-auto text-center space-y-5 mb-12">
+          {/* Terminal-style status line */}
+          <div className="flex items-center justify-center gap-2 text-xs font-mono text-accent-cyan/70">
+            <Satellite className="w-3 h-3 animate-pulse" />
+            <span className="terminal-text">
+              LIVE FEED // ORBITAL NETWORK
+            </span>
+            <span className="live-dot" />
+          </div>
+
+          <span
+            className={`category-badge category-badge-${featured.category} inline-block`}
+          >
+            {CATEGORY_LABELS[featured.category]}
+          </span>
+
+          <h1 className="font-heading text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-text-primary leading-[1.1] drop-shadow-lg">
+            {featured.title}
+          </h1>
+
+          <p className="text-base sm:text-lg md:text-xl text-text-secondary leading-relaxed max-w-2xl mx-auto drop-shadow-md">
+            {featured.excerpt}
+          </p>
+
+          <div className="flex items-center justify-center gap-4 text-sm text-text-secondary">
+            <div className="flex items-center gap-1">
+              <Clock className="w-4 h-4" />
+              <span>{formatDistanceToNow(featured.date)}</span>
+            </div>
+            {featured.geo && (
+              <button
+                onClick={() => globeRef.current?.focusOn(featured.geo)}
+                className="flex items-center gap-1 hover:text-accent-cyan transition-colors group"
+              >
+                <MapPin className="w-4 h-4 group-hover:animate-bounce" />
+                <span>{featured.geo.name}</span>
+              </button>
             )}
           </div>
+
+          <Link
+            href={`/article/${featured.category}/${featured.id}`}
+            className="article-link-cta inline-flex items-center gap-2 px-6 py-3 sm:px-8 sm:py-4 bg-accent-cyan/10 border border-accent-cyan/30 rounded-xl text-accent-cyan font-semibold text-base sm:text-lg hover:bg-accent-cyan/20 hover:border-accent-cyan/50 hover:shadow-[0_0_30px_rgba(143,211,255,0.15)] transition-all duration-300"
+          >
+            Read Article
+            <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+          </Link>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-          {/* Left: Featured article text */}
-          <div className="space-y-6">
-            {/* Terminal-style status line */}
-            <div className="flex items-center gap-2 text-xs font-mono text-accent-cyan/70">
-              <Satellite className="w-3 h-3 animate-pulse" />
-              <span className="terminal-text">
-                LIVE FEED // ORBITAL NETWORK
-              </span>
-              <span className="live-dot" />
-            </div>
-
-            <span
-              className={`category-badge category-badge-${featured.category} inline-block`}
-            >
-              {CATEGORY_LABELS[featured.category]}
-            </span>
-
-            <h1 className="font-heading text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-text-primary leading-[1.1] drop-shadow-lg">
-              {featured.title}
-            </h1>
-
-            <p className="text-base sm:text-lg md:text-xl text-text-secondary leading-relaxed max-w-2xl drop-shadow-md">
-              {featured.excerpt}
-            </p>
-
-            <div className="flex items-center gap-4 text-sm text-text-secondary">
-              <div className="flex items-center gap-1">
-                <Clock className="w-4 h-4" />
-                <span>{formatDistanceToNow(featured.date)}</span>
-              </div>
-              {featured.geo && (
-                <button
-                  onClick={() => globeRef.current?.focusOn(featured.geo)}
-                  className="flex items-center gap-1 hover:text-accent-cyan transition-colors group"
-                >
-                  <MapPin className="w-4 h-4 group-hover:animate-bounce" />
-                  <span>{featured.geo.name}</span>
-                </button>
-              )}
-            </div>
-
-            <Link
-              href={`/article/${featured.category}/${featured.id}`}
-              className="article-link-cta inline-flex items-center gap-2 px-6 py-3 sm:px-8 sm:py-4 bg-accent-cyan/10 border border-accent-cyan/30 rounded-xl text-accent-cyan font-semibold text-base sm:text-lg hover:bg-accent-cyan/20 hover:border-accent-cyan/50 hover:shadow-[0_0_30px_rgba(143,211,255,0.15)] transition-all duration-300"
-            >
-              Read Article
-              <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
-            </Link>
-          </div>
-
-          {/* Right: Interactive globe (desktop only) */}
-          <div className="hidden lg:flex items-center justify-center">
-            <div
-              ref={globeContainerRef}
-              className="relative cursor-grab active:cursor-grabbing"
-              onMouseDown={handleGlobeInteract}
-              onMouseUp={handleGlobeRelease}
-              onTouchStart={handleGlobeInteract}
-              onTouchEnd={handleGlobeRelease}
-            >
-              <div
-                className={`globe-glow transition-opacity duration-500 ${
-                  globeInteracting
-                    ? "globe-interacting opacity-100"
-                    : "opacity-70"
-                }`}
-              >
-                <Globe
-                  ref={globeRef}
-                  pins={pins}
-                  width={globeSize}
-                  height={globeSize}
-                  autoRotate={true}
-                  enableZoom={true}
-                  initialAltitude={2.0}
-                />
-              </div>
-              {showGrabHint && (
-                <div className="grab-hint absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 text-xs text-accent-cyan/60 font-mono pointer-events-none">
-                  <Hand className="w-4 h-4" />
-                  <span>Drag to explore</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Latest per category panel — below both columns */}
-        <div className="mt-12">
+        {/* Latest per category panel */}
+        <div>
           <div className="glass-card p-4 space-y-3 !hover:transform-none">
             <h3 className="text-xs font-mono text-accent-cyan/60 uppercase tracking-widest mb-3">
               // Global Feed — Latest per Category

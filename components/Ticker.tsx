@@ -8,9 +8,10 @@ import { CATEGORY_LABELS } from "@/lib/types";
 
 interface TickerProps {
   articles: Article[];
+  compact?: boolean;
 }
 
-export default function Ticker({ articles }: TickerProps) {
+export default function Ticker({ articles, compact = false }: TickerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
 
@@ -21,7 +22,7 @@ export default function Ticker({ articles }: TickerProps) {
 
     function calcDuration() {
       const scrollW = track!.scrollWidth;
-      const pxPerSec = window.innerWidth < 768 ? 20 : 25;
+      const pxPerSec = window.innerWidth < 768 ? 50 : 60;
       const duration = scrollW / pxPerSec;
       container!.style.setProperty("--ticker-duration", duration + "s");
     }
@@ -36,6 +37,35 @@ export default function Ticker({ articles }: TickerProps) {
 
   // Duplicate for seamless loop
   const items = [...articles, ...articles];
+
+  if (compact) {
+    return (
+      <div
+        ref={containerRef}
+        className="fixed bottom-0 left-0 right-0 z-[30] bg-space-bg/85 backdrop-blur-md border-t border-white/5 overflow-hidden py-1.5"
+      >
+        <div ref={trackRef} className="ticker-track">
+          {items.map((article, i) => (
+            <Link
+              key={`${article.id}-${i}`}
+              href={`/article/${article.category}/${article.id}`}
+              className="flex items-center gap-2 px-4 whitespace-nowrap text-xs group transition-transform hover:scale-105 hover:drop-shadow-[0_0_8px_rgba(143,211,255,0.3)]"
+            >
+              <Zap className="w-2.5 h-2.5 text-accent-amber flex-shrink-0" />
+              <span
+                className={`category-badge category-badge-${article.category} !text-[0.55rem] !py-0`}
+              >
+                {CATEGORY_LABELS[article.category]}
+              </span>
+              <span className="text-text-secondary group-hover:text-text-primary transition-colors">
+                {article.title}
+              </span>
+            </Link>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div ref={containerRef} className="ticker-container border-y border-white/5 overflow-hidden py-3 my-8">
