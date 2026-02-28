@@ -379,39 +379,42 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         const angle = (asteroid.approachAngle * Math.PI) / 180;
         const size = Math.max(0.08, Math.min(asteroid.diameterM / 300, 0.35));
 
-        // Rocky irregular asteroid: low-poly icosahedron with vertex displacement
-        const aGeo = new THREE.IcosahedronGeometry(size, 0);
-        // Displace vertices for rocky shape
+        // Rocky irregular asteroid: subdivided icosahedron with aggressive vertex noise
+        const aGeo = new THREE.IcosahedronGeometry(size, 2);
         const posAttr = aGeo.getAttribute("position");
+        // Use seeded noise per-vertex for craters and ridges
         for (let vi = 0; vi < posAttr.count; vi++) {
           const nx = posAttr.getX(vi);
           const ny = posAttr.getY(vi);
           const nz = posAttr.getZ(vi);
           const len = Math.sqrt(nx * nx + ny * ny + nz * nz);
-          const displace = 1 + (Math.random() * 0.5 - 0.25); // ±25%
+          // Multi-octave displacement: large bumps + small craters
+          const large = (Math.sin(nx * 7.3 + ny * 5.1) * Math.cos(nz * 6.8 + nx * 3.2)) * 0.35;
+          const small = (Math.sin(nx * 19 + nz * 13) * Math.cos(ny * 17 + nx * 11)) * 0.15;
+          const displace = 1 + large + small + (Math.random() * 0.12 - 0.06);
           posAttr.setXYZ(vi, (nx / len) * size * displace, (ny / len) * size * displace, (nz / len) * size * displace);
         }
         posAttr.needsUpdate = true;
         aGeo.computeVertexNormals();
         aGeo.computeBoundingSphere();
 
-        // Rocky colors: grays/browns
+        // Rocky colors: grays/browns with per-face variation
         const rockyColors = [0x6b6560, 0x7a6e5e, 0x5c5550, 0x8a7d6b, 0x4e4845];
         const baseColor = asteroid.hazardous ? 0xb03030 : rockyColors[Math.floor(Math.random() * rockyColors.length)];
         const aMat = new THREE.MeshStandardMaterial({
           color: baseColor,
-          roughness: 0.9,
-          metalness: 0.1,
+          roughness: 0.95,
+          metalness: 0.05,
           emissive: asteroid.hazardous ? 0x661111 : 0x221100,
           emissiveIntensity: 0.3,
-          wireframe: false,
+          flatShading: true,
         });
         const aMesh = new THREE.Mesh(aGeo, aMat);
         // Non-uniform scale for elongated shapes
         aMesh.scale.set(
-          0.7 + Math.random() * 0.6,
-          0.7 + Math.random() * 0.6,
-          0.7 + Math.random() * 0.6,
+          0.6 + Math.random() * 0.8,
+          0.5 + Math.random() * 0.5,
+          0.6 + Math.random() * 0.8,
         );
         aMesh.position.set(
           EARTH_POS.x + Math.cos(angle) * scaledDist,
@@ -421,13 +424,13 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         scene.add(aMesh);
         objectMap.set(asteroid.id, aMesh);
 
-        // Wireframe overlay for Jarvis feel
-        const aWireGeo = new THREE.IcosahedronGeometry(size * 1.05, 0);
+        // Wireframe overlay for Jarvis feel (low-poly for visible edges)
+        const aWireGeo = new THREE.IcosahedronGeometry(size * 1.05, 1);
         const aWireMat = new THREE.MeshBasicMaterial({
           color: asteroid.hazardous ? 0xef4444 : 0x99887766,
           wireframe: true,
           transparent: true,
-          opacity: 0.25,
+          opacity: 0.15,
         });
         aMesh.add(new THREE.Mesh(aWireGeo, aWireMat));
 

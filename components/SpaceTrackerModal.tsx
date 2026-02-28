@@ -60,27 +60,27 @@ function BootOverlay({ onDone }: { onDone: () => void }) {
 
   useEffect(() => {
     const sequence = [
-      { text: "> ESTABLISHING SECURE LINK...", status: "[OK]", delay: 0 },
-      { text: "> LOADING JARVIS HOLOGRAPHIC INTERFACE...", status: "[OK]", delay: 500 },
-      { text: "> SIGNAL ACQUIRED — ALL SYSTEMS NOMINAL", status: "", delay: 1000 },
+      { text: "> SECURE LINK...", status: "[OK]", delay: 0 },
+      { text: "> JARVIS ONLINE", status: "[OK]", delay: 200 },
+      { text: "> SIGNAL ACQUIRED", status: "", delay: 400 },
     ];
 
     const timers: ReturnType<typeof setTimeout>[] = [];
-    sequence.forEach((item, i) => {
+    sequence.forEach((item) => {
       timers.push(setTimeout(() => {
         setLines(prev => [...prev, { text: item.text, status: item.status }]);
       }, item.delay));
     });
 
-    timers.push(setTimeout(onDone, 1500));
+    timers.push(setTimeout(onDone, 600));
     return () => timers.forEach(clearTimeout);
   }, [onDone]);
 
   return (
-    <div className="absolute inset-0 z-30 bg-[#030509]/95 flex items-center justify-center animate-fade-out" style={{ animationDelay: "1.2s", animationDuration: "0.3s", animationFillMode: "forwards" }}>
+    <div className="absolute inset-0 z-30 bg-[#030509]/95 flex items-center justify-center animate-fade-out" style={{ animationDelay: "0.5s", animationDuration: "0.2s", animationFillMode: "forwards" }}>
       <div className="space-y-2 font-mono text-sm text-cyan-400 max-w-md px-4">
         {lines.map((line, i) => (
-          <div key={i} className="flex items-center gap-2 animate-typewriter-line" style={{ animationDelay: `${i * 0.1}s` }}>
+          <div key={i} className="flex items-center gap-2 animate-typewriter-line" style={{ animationDelay: `${i * 0.05}s` }}>
             <span className="whitespace-nowrap">{line.text}</span>
             {line.status && <span className="text-green-400 font-bold">{line.status}</span>}
           </div>
