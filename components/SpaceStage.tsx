@@ -680,13 +680,35 @@ export default function SpaceStage() {
       ctx.save();
       ctx.translate(sat.x, sat.y);
       ctx.globalAlpha = sat.alpha;
-      ctx.fillStyle = "#C0C0C0";
-      ctx.fillRect(-sat.size / 2, -sat.size / 2, sat.size, sat.size);
-      const pw = sat.size * 1.8;
-      const ph = sat.size * 0.5;
-      ctx.fillStyle = "#3B6BA5";
-      ctx.fillRect(-sat.size / 2 - pw, -ph / 2, pw, ph);
-      ctx.fillRect(sat.size / 2, -ph / 2, pw, ph);
+      const s = sat.size;
+      // Main bus — gradient metallic body
+      const bodyGrad = ctx.createLinearGradient(-s / 2, -s / 2, s / 2, s / 2);
+      bodyGrad.addColorStop(0, "#D8D8D8"); bodyGrad.addColorStop(0.5, "#A0A0A0"); bodyGrad.addColorStop(1, "#C8C8C8");
+      ctx.fillStyle = bodyGrad;
+      ctx.fillRect(-s / 2, -s / 2, s, s);
+      // Highlight edge
+      ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.lineWidth = 0.5;
+      ctx.strokeRect(-s / 2, -s / 2, s, s);
+      // Solar panels — blue with cell grid lines
+      const pw = s * 2.0, ph = s * 0.6;
+      const panelGrad = ctx.createLinearGradient(-s / 2 - pw, 0, -s / 2, 0);
+      panelGrad.addColorStop(0, "#1a3a6a"); panelGrad.addColorStop(0.5, "#2a5a9a"); panelGrad.addColorStop(1, "#1a4a8a");
+      ctx.fillStyle = panelGrad;
+      ctx.fillRect(-s / 2 - pw, -ph / 2, pw, ph);
+      ctx.fillRect(s / 2, -ph / 2, pw, ph);
+      // Panel grid lines
+      ctx.strokeStyle = "rgba(100,150,200,0.3)"; ctx.lineWidth = 0.3;
+      for (let px = -s / 2 - pw; px < -s / 2; px += s * 0.4) { ctx.beginPath(); ctx.moveTo(px, -ph / 2); ctx.lineTo(px, ph / 2); ctx.stroke(); }
+      for (let px = s / 2; px < s / 2 + pw; px += s * 0.4) { ctx.beginPath(); ctx.moveTo(px, -ph / 2); ctx.lineTo(px, ph / 2); ctx.stroke(); }
+      // Panel connectors
+      ctx.fillStyle = "#888"; ctx.fillRect(-s / 2 - 1, -1, 2, 2); ctx.fillRect(s / 2 - 1, -1, 2, 2);
+      // Antenna dish
+      ctx.beginPath(); ctx.arc(0, -s / 2 - 2, s * 0.3, Math.PI, 0);
+      ctx.strokeStyle = "#ccc"; ctx.lineWidth = 0.8; ctx.stroke();
+      // Blinking light
+      ctx.beginPath(); ctx.arc(s * 0.3, -s * 0.3, 0.8, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,50,50,${0.5 + Math.sin(Date.now() * 0.005) * 0.5})`;
+      ctx.fill();
       ctx.globalAlpha = 1;
       ctx.restore();
     }
@@ -705,8 +727,21 @@ export default function SpaceStage() {
         else ctx.lineTo(Math.cos(ang) * r, Math.sin(ang) * r);
       }
       ctx.closePath();
-      ctx.fillStyle = "#8B8680";
+      // Rocky gradient
+      const ag = ctx.createRadialGradient(-a.size * 0.2, -a.size * 0.2, 0, 0, 0, a.size);
+      ag.addColorStop(0, "#A09888"); ag.addColorStop(0.5, "#8B8070"); ag.addColorStop(1, "#6B6058");
+      ctx.fillStyle = ag;
       ctx.fill();
+      // Edge shadow
+      ctx.strokeStyle = "rgba(40,35,30,0.4)"; ctx.lineWidth = 0.8;
+      ctx.stroke();
+      // Surface craters (subtle)
+      for (let ci = 0; ci < 3; ci++) {
+        const cx = (Math.sin(ci * 2.3 + (a.rotation || 0)) * a.size * 0.3);
+        const cy = (Math.cos(ci * 3.1 + (a.rotation || 0)) * a.size * 0.3);
+        ctx.beginPath(); ctx.arc(cx, cy, a.size * 0.12, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(60,55,48,0.2)"; ctx.fill();
+      }
       ctx.globalAlpha = 1;
       ctx.restore();
     }
@@ -714,25 +749,60 @@ export default function SpaceStage() {
     function drawCometShape(ctx: CanvasRenderingContext2D, c: { x: number; y: number; angle: number; life?: number; maxLife?: number; tailLength?: number; headRadius?: number }) {
       const progress = (c.life || 0) / (c.maxLife || 1);
       const alpha = progress < 0.1 ? progress / 0.1 : progress > 0.8 ? (1 - progress) / 0.2 : 1;
-      const ca = alpha * 0.6;
+      const ca = alpha * 0.7;
       const tLen = c.tailLength || 150;
       const hR = c.headRadius || 3;
 
-      const tailX = c.x - Math.cos(c.angle) * tLen;
-      const tailY = c.y - Math.sin(c.angle) * tLen;
-      const grad = ctx.createLinearGradient(tailX, tailY, c.x, c.y);
-      grad.addColorStop(0, `rgba(180,220,255,0)`);
-      grad.addColorStop(1, `rgba(230,245,255,${ca})`);
+      // Dust tail (broader, slightly curved, warm color)
+      const dustTailX = c.x - Math.cos(c.angle + 0.08) * tLen;
+      const dustTailY = c.y - Math.sin(c.angle + 0.08) * tLen;
+      const dustGrad = ctx.createLinearGradient(dustTailX, dustTailY, c.x, c.y);
+      dustGrad.addColorStop(0, `rgba(255,240,200,0)`);
+      dustGrad.addColorStop(0.5, `rgba(255,230,180,${ca * 0.15})`);
+      dustGrad.addColorStop(1, `rgba(255,245,220,${ca * 0.4})`);
       ctx.beginPath();
-      ctx.moveTo(tailX, tailY);
-      ctx.lineTo(c.x, c.y);
-      ctx.strokeStyle = grad;
-      ctx.lineWidth = 3;
+      ctx.moveTo(dustTailX, dustTailY);
+      // Curve via control points for natural tail shape
+      const cpx = (c.x + dustTailX) / 2 + Math.sin(c.angle) * tLen * 0.08;
+      const cpy = (c.y + dustTailY) / 2 - Math.cos(c.angle) * tLen * 0.08;
+      ctx.quadraticCurveTo(cpx, cpy, c.x, c.y);
+      ctx.strokeStyle = dustGrad;
+      ctx.lineWidth = 5;
       ctx.stroke();
 
+      // Ion tail (narrow, straight, blue)
+      const ionTailX = c.x - Math.cos(c.angle) * tLen * 1.1;
+      const ionTailY = c.y - Math.sin(c.angle) * tLen * 1.1;
+      const ionGrad = ctx.createLinearGradient(ionTailX, ionTailY, c.x, c.y);
+      ionGrad.addColorStop(0, `rgba(100,160,255,0)`);
+      ionGrad.addColorStop(0.6, `rgba(130,180,255,${ca * 0.2})`);
+      ionGrad.addColorStop(1, `rgba(180,220,255,${ca * 0.5})`);
+      ctx.beginPath();
+      ctx.moveTo(ionTailX, ionTailY);
+      ctx.lineTo(c.x, c.y);
+      ctx.strokeStyle = ionGrad;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Coma (diffuse glow around head)
+      const comaGrad = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, hR * 5);
+      comaGrad.addColorStop(0, `rgba(255,255,240,${ca * 0.6})`);
+      comaGrad.addColorStop(0.3, `rgba(200,230,255,${ca * 0.2})`);
+      comaGrad.addColorStop(1, `rgba(150,200,255,0)`);
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, hR * 5, 0, Math.PI * 2);
+      ctx.fillStyle = comaGrad;
+      ctx.fill();
+
+      // Nucleus (bright core)
       ctx.beginPath();
       ctx.arc(c.x, c.y, hR, 0, Math.PI * 2);
       ctx.fillStyle = `rgba(255,255,255,${ca})`;
+      ctx.fill();
+      // Inner glow
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, hR * 0.5, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,255,240,${ca * 0.9})`;
       ctx.fill();
     }
 

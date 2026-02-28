@@ -22,31 +22,36 @@ const YEAR_SCENE_SECONDS = 120;
 function orbitalSpeed(periodDays: number) {
   return (2 * Math.PI) / ((periodDays / 365.25) * YEAR_SCENE_SECONDS);
 }
-function selfRotSpeed(rotationHours: number) {
-  const earthRotScene = YEAR_SCENE_SECONDS / 365.25;
-  return (2 * Math.PI) / ((rotationHours / 24) * earthRotScene);
+
+// J2000 mean longitude data for real planet positions
+const J2000_EPOCH = Date.UTC(2000, 0, 1, 12, 0, 0);
+const DAYS_SINCE_J2000 = (Date.now() - J2000_EPOCH) / 86400000;
+const T_CENTURIES = DAYS_SINCE_J2000 / 36525;
+
+function j2000Angle(L0deg: number, rateDegPerCentury: number): number {
+  const lonDeg = (L0deg + rateDegPerCentury * T_CENTURIES) % 360;
+  return (lonDeg * Math.PI) / 180;
 }
 
 const PLANET_DATA: {
   name: string; radius: number; dist: number; color: string;
-  speed: number; ring?: boolean; tilt: number; selfRot: number;
-  gasGiant?: boolean;
+  speed: number; ring?: boolean; tilt: number; visualRotSpeed: number;
+  gasGiant?: boolean; j2000L0: number; j2000Rate: number;
 }[] = [
-  { name: "Mercury", radius: 0.12, dist: 12, color: "#A0826D", speed: orbitalSpeed(88), tilt: 0.03, selfRot: selfRotSpeed(1407.6) },
-  { name: "Venus", radius: 0.22, dist: 16, color: "#E8CDA0", speed: orbitalSpeed(225), tilt: 2.64, selfRot: selfRotSpeed(5832.5) },
-  { name: "Mars", radius: 0.18, dist: 22, color: "#C1440E", speed: orbitalSpeed(687), tilt: 25.2, selfRot: selfRotSpeed(24.6) },
-  { name: "Jupiter", radius: 0.7, dist: 32, color: "#C88B3A", speed: orbitalSpeed(4333), tilt: 3.13, selfRot: selfRotSpeed(9.93), gasGiant: true },
-  { name: "Saturn", radius: 0.55, dist: 42, color: "#E8D5A3", speed: orbitalSpeed(10759), ring: true, tilt: 26.7, selfRot: selfRotSpeed(10.7), gasGiant: true },
-  { name: "Uranus", radius: 0.35, dist: 52, color: "#73C2C6", speed: orbitalSpeed(30687), tilt: 97.8, selfRot: selfRotSpeed(17.2), gasGiant: true },
-  { name: "Neptune", radius: 0.33, dist: 60, color: "#4B70DD", speed: orbitalSpeed(60190), tilt: 28.3, selfRot: selfRotSpeed(16.1), gasGiant: true },
+  { name: "Mercury", radius: 0.12, dist: 12, color: "#A0826D", speed: orbitalSpeed(88), tilt: 0.03, visualRotSpeed: 0.008, j2000L0: 252.251, j2000Rate: 149472.675 },
+  { name: "Venus", radius: 0.22, dist: 16, color: "#E8CDA0", speed: orbitalSpeed(225), tilt: 2.64, visualRotSpeed: 0.003, j2000L0: 181.980, j2000Rate: 58517.816 },
+  { name: "Mars", radius: 0.18, dist: 22, color: "#C1440E", speed: orbitalSpeed(687), tilt: 25.2, visualRotSpeed: 0.04, j2000L0: 355.453, j2000Rate: 19140.300 },
+  { name: "Jupiter", radius: 0.7, dist: 32, color: "#C88B3A", speed: orbitalSpeed(4333), tilt: 3.13, visualRotSpeed: 0.08, gasGiant: true, j2000L0: 34.351, j2000Rate: 3034.906 },
+  { name: "Saturn", radius: 0.55, dist: 42, color: "#E8D5A3", speed: orbitalSpeed(10759), ring: true, tilt: 26.7, visualRotSpeed: 0.07, gasGiant: true, j2000L0: 49.944, j2000Rate: 1222.114 },
+  { name: "Uranus", radius: 0.35, dist: 52, color: "#73C2C6", speed: orbitalSpeed(30687), tilt: 97.8, visualRotSpeed: 0.05, gasGiant: true, j2000L0: 313.232, j2000Rate: 428.175 },
+  { name: "Neptune", radius: 0.33, dist: 60, color: "#4B70DD", speed: orbitalSpeed(60190), tilt: 28.3, visualRotSpeed: 0.05, gasGiant: true, j2000L0: 304.880, j2000Rate: 218.460 },
 ];
 const SUN_POS = new THREE.Vector3(-70, 0, 0);
 
 // Moon orbital constants
-const MOON_DIST = EARTH_RADIUS + 1.2; // scene units from Earth center
+const MOON_DIST = EARTH_RADIUS + 1.2;
 const MOON_RADIUS = 0.14;
-const MOON_ORBITAL_PERIOD = 27.3; // days → scene time
-const MOON_INCLINATION = 5.14; // degrees
+const MOON_INCLINATION = 5.14;
 
 // ---------------------------------------------------------------------------
 // Planet info — real astronomical data (Croatian labels)
@@ -103,7 +108,7 @@ const MOON_INFO: Record<string, string> = {
 };
 
 // ---------------------------------------------------------------------------
-// Procedural planet texture fallback
+// Procedural planet texture fallback — enhanced
 // ---------------------------------------------------------------------------
 function generatePlanetTexture(name: string, w = 512, h = 256): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
@@ -115,66 +120,168 @@ function generatePlanetTexture(name: string, w = 512, h = 256): HTMLCanvasElemen
   if (n === "mercury") {
     ctx.fillStyle = "#8a8278";
     ctx.fillRect(0, 0, w, h);
-    for (let i = 0; i < 80; i++) {
+    for (let i = 0; i < 120; i++) {
       ctx.beginPath();
-      ctx.arc(Math.random() * w, Math.random() * h, 2 + Math.random() * 12, 0, Math.PI * 2);
-      const s = 60 + Math.floor(Math.random() * 40);
-      ctx.fillStyle = `rgb(${s},${s - 5},${s - 10})`;
+      const cx = Math.random() * w, cy = Math.random() * h;
+      const cr = 2 + Math.random() * 15;
+      ctx.arc(cx, cy, cr, 0, Math.PI * 2);
+      const s = 50 + Math.floor(Math.random() * 50);
+      ctx.fillStyle = `rgb(${s + 10},${s},${s - 5})`;
       ctx.fill();
+      // Crater rim highlight
+      ctx.beginPath();
+      ctx.arc(cx - cr * 0.2, cy - cr * 0.2, cr * 0.9, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(160,150,140,0.15)`;
+      ctx.lineWidth = 1;
+      ctx.stroke();
     }
   } else if (n === "venus") {
     const g = ctx.createLinearGradient(0, 0, 0, h);
-    g.addColorStop(0, "#e8d8a0"); g.addColorStop(0.5, "#e0c880"); g.addColorStop(1, "#e8d090");
+    g.addColorStop(0, "#e8d8a0"); g.addColorStop(0.3, "#e0c880"); g.addColorStop(0.7, "#d8c070"); g.addColorStop(1, "#e8d090");
     ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
-    for (let y = 0; y < h; y += 4) {
-      ctx.strokeStyle = `rgba(255,240,200,0.08)`; ctx.lineWidth = 2;
+    // Thick atmosphere swirls
+    for (let y = 0; y < h; y += 3) {
+      ctx.strokeStyle = `rgba(255,240,200,${0.04 + Math.random() * 0.06})`; ctx.lineWidth = 2 + Math.random() * 3;
       ctx.beginPath(); ctx.moveTo(0, y);
-      for (let x = 0; x < w; x += 10) ctx.lineTo(x, y + Math.sin((x + Math.sin(y * 0.04) * 20) * 0.02) * 6);
+      for (let x = 0; x < w; x += 8) ctx.lineTo(x, y + Math.sin((x * 0.015 + Math.sin(y * 0.03) * 15)) * 8);
       ctx.stroke();
     }
   } else if (n === "mars") {
-    ctx.fillStyle = "#b04820"; ctx.fillRect(0, 0, w, h);
-    for (let i = 0; i < 40; i++) {
+    const mg = ctx.createLinearGradient(0, 0, 0, h);
+    mg.addColorStop(0, "#d09080"); mg.addColorStop(0.15, "#c05828"); mg.addColorStop(0.5, "#b04820"); mg.addColorStop(0.85, "#c05828"); mg.addColorStop(1, "#d09080");
+    ctx.fillStyle = mg; ctx.fillRect(0, 0, w, h);
+    // Dark regions (mare)
+    for (let i = 0; i < 30; i++) {
       ctx.beginPath();
-      ctx.ellipse(Math.random() * w, h * 0.15 + Math.random() * h * 0.7, 20 + Math.random() * 60, 10 + Math.random() * 30, Math.random() * Math.PI, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(${80 + Math.random() * 40},${20 + Math.random() * 20},10,${0.2 + Math.random() * 0.15})`; ctx.fill();
+      ctx.ellipse(Math.random() * w, h * 0.2 + Math.random() * h * 0.6, 15 + Math.random() * 50, 8 + Math.random() * 25, Math.random() * Math.PI, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${70 + Math.random() * 30},${20 + Math.random() * 15},10,${0.15 + Math.random() * 0.15})`; ctx.fill();
     }
-    const cg = ctx.createLinearGradient(0, 0, 0, 20); cg.addColorStop(0, "rgba(255,255,255,0.7)"); cg.addColorStop(1, "rgba(255,255,255,0)");
-    ctx.fillStyle = cg; ctx.fillRect(0, 0, w, 20);
-    const cg2 = ctx.createLinearGradient(0, h - 20, 0, h); cg2.addColorStop(0, "rgba(255,255,255,0)"); cg2.addColorStop(1, "rgba(255,255,255,0.7)");
-    ctx.fillStyle = cg2; ctx.fillRect(0, h - 20, w, 20);
+    // Polar caps
+    const cg = ctx.createLinearGradient(0, 0, 0, 25); cg.addColorStop(0, "rgba(255,255,255,0.8)"); cg.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = cg; ctx.fillRect(0, 0, w, 25);
+    const cg2 = ctx.createLinearGradient(0, h - 25, 0, h); cg2.addColorStop(0, "rgba(255,255,255,0)"); cg2.addColorStop(1, "rgba(255,255,255,0.8)");
+    ctx.fillStyle = cg2; ctx.fillRect(0, h - 25, w, 25);
+    // Valles Marineris hint
+    ctx.strokeStyle = "rgba(60,15,5,0.3)"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(w * 0.3, h * 0.48);
+    ctx.bezierCurveTo(w * 0.4, h * 0.5, w * 0.55, h * 0.47, w * 0.65, h * 0.5);
+    ctx.stroke();
   } else if (n === "jupiter") {
-    const bc = ["#c88b3a","#a67228","#d4a050","#8a5e1e","#c88b3a","#b8802e","#d4a050","#a67228","#c88b3a","#9a6e28","#d0a048","#b88830"];
+    // More detailed banding with turbulence
+    const bc = ["#c88b3a","#a67228","#d4a050","#8a5e1e","#c88b3a","#b8802e","#d4a050","#a67228","#c88b3a","#9a6e28","#d0a048","#b88830","#c08040","#a87030"];
     const bh = h / bc.length;
     bc.forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(0, i * bh, w, bh + 1); });
-    ctx.save(); ctx.translate(w * 0.6, h * 0.58); ctx.beginPath(); ctx.ellipse(0, 0, 28, 16, 0, 0, Math.PI * 2);
-    const gr = ctx.createRadialGradient(0, 0, 0, 0, 0, 28); gr.addColorStop(0, "rgba(200,80,40,0.7)"); gr.addColorStop(1, "rgba(160,60,30,0)");
-    ctx.fillStyle = gr; ctx.fill(); ctx.restore();
+    // Band edge turbulence
+    for (let i = 1; i < bc.length; i++) {
+      const by = i * bh;
+      ctx.strokeStyle = `rgba(${120 + Math.random() * 60},${70 + Math.random() * 40},${20 + Math.random() * 30},0.3)`;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(0, by);
+      for (let x = 0; x < w; x += 6) ctx.lineTo(x, by + Math.sin(x * 0.04 + i * 2) * 3 + Math.sin(x * 0.1) * 1.5);
+      ctx.stroke();
+    }
+    // Great Red Spot
+    ctx.save(); ctx.translate(w * 0.6, h * 0.58); ctx.beginPath(); ctx.ellipse(0, 0, 32, 18, 0, 0, Math.PI * 2);
+    const gr = ctx.createRadialGradient(0, 0, 0, 0, 0, 32);
+    gr.addColorStop(0, "rgba(200,70,35,0.8)"); gr.addColorStop(0.5, "rgba(180,60,30,0.5)"); gr.addColorStop(1, "rgba(160,60,30,0)");
+    ctx.fillStyle = gr; ctx.fill();
+    // Spiral detail in GRS
+    ctx.strokeStyle = "rgba(220,100,50,0.3)"; ctx.lineWidth = 1;
+    for (let a = 0; a < Math.PI * 4; a += 0.3) {
+      const sr = a * 2; ctx.beginPath(); ctx.arc(Math.cos(a) * sr * 0.3, Math.sin(a) * sr * 0.15, 1, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.restore();
   } else if (n === "saturn") {
-    const sb = ["#e8d5a3","#d4c090","#e0c888","#c8b478","#e8d0a0","#d8c498","#e0cc90","#d0b880"];
+    const sb = ["#f0e0b0","#e8d5a3","#d4c090","#e0c888","#c8b478","#e8d0a0","#d8c498","#e0cc90","#d0b880","#e4d4a0"];
     const bh2 = h / sb.length;
     sb.forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(0, i * bh2, w, bh2 + 1); });
+    // Subtle band turbulence
+    for (let i = 1; i < sb.length; i++) {
+      const by = i * bh2;
+      ctx.strokeStyle = "rgba(180,160,120,0.15)"; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(0, by);
+      for (let x = 0; x < w; x += 8) ctx.lineTo(x, by + Math.sin(x * 0.03 + i) * 2);
+      ctx.stroke();
+    }
   } else if (n === "uranus") {
     const ug = ctx.createLinearGradient(0, 0, 0, h);
-    ug.addColorStop(0, "#73c2c6"); ug.addColorStop(0.5, "#80ccd0"); ug.addColorStop(1, "#75c4c8");
+    ug.addColorStop(0, "#73c2c6"); ug.addColorStop(0.3, "#80ccd0"); ug.addColorStop(0.5, "#85d0d4"); ug.addColorStop(0.7, "#80ccd0"); ug.addColorStop(1, "#75c4c8");
     ctx.fillStyle = ug; ctx.fillRect(0, 0, w, h);
-    for (let y = 0; y < h; y += 8) { ctx.strokeStyle = "rgba(100,200,210,0.08)"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+    // Subtle banding
+    for (let y = 0; y < h; y += 6) {
+      ctx.strokeStyle = `rgba(100,200,210,${0.04 + Math.random() * 0.04})`; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+    }
+    // Slight polar brightening
+    const pg = ctx.createRadialGradient(w / 2, 0, 0, w / 2, 0, w * 0.4);
+    pg.addColorStop(0, "rgba(180,240,240,0.1)"); pg.addColorStop(1, "rgba(180,240,240,0)");
+    ctx.fillStyle = pg; ctx.fillRect(0, 0, w, h * 0.3);
   } else if (n === "neptune") {
     const ng = ctx.createLinearGradient(0, 0, 0, h);
-    ng.addColorStop(0, "#3058c8"); ng.addColorStop(0.5, "#3850c0"); ng.addColorStop(1, "#3550c0");
+    ng.addColorStop(0, "#3058c8"); ng.addColorStop(0.3, "#3555cc"); ng.addColorStop(0.5, "#3850c0"); ng.addColorStop(0.7, "#3555cc"); ng.addColorStop(1, "#3550c0");
     ctx.fillStyle = ng; ctx.fillRect(0, 0, w, h);
-    for (let i = 0; i < 8; i++) { ctx.strokeStyle = `rgba(255,255,255,${0.15 + Math.random() * 0.15})`; ctx.lineWidth = 1 + Math.random() * 2; ctx.beginPath(); ctx.moveTo(Math.random() * w, h * 0.2 + Math.random() * h * 0.6); ctx.lineTo(Math.random() * w, h * 0.2 + Math.random() * h * 0.6); ctx.stroke(); }
-  } else if (n === "sun") {
-    ctx.fillStyle = "#ff8800"; ctx.fillRect(0, 0, w, h);
-    for (let y = 0; y < h; y += 2) for (let x = 0; x < w; x += 2) {
-      const v = Math.sin(x * 0.05 + y * 0.07) * Math.cos(x * 0.03 - y * 0.04);
-      ctx.fillStyle = `rgb(${Math.floor(220 + v * 35)},${Math.floor(140 + v * 50)},${Math.floor(30 + v * 20)})`;
-      ctx.fillRect(x, y, 2, 2);
+    // Cloud bands
+    for (let i = 0; i < 10; i++) {
+      ctx.strokeStyle = `rgba(255,255,255,${0.08 + Math.random() * 0.12})`; ctx.lineWidth = 1 + Math.random() * 2;
+      const sy = h * 0.2 + Math.random() * h * 0.6;
+      ctx.beginPath(); ctx.moveTo(0, sy);
+      for (let x = 0; x < w; x += 10) ctx.lineTo(x, sy + Math.sin(x * 0.02 + i * 3) * 5);
+      ctx.stroke();
     }
-    for (let i = 0; i < 15; i++) {
-      const cx2 = Math.random() * w, cy2 = Math.random() * h, r2 = 10 + Math.random() * 30;
-      const sg = ctx.createRadialGradient(cx2, cy2, 0, cx2, cy2, r2); sg.addColorStop(0, "rgba(255,255,200,0.3)"); sg.addColorStop(1, "rgba(255,200,100,0)");
-      ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(cx2, cy2, r2, 0, Math.PI * 2); ctx.fill();
+    // Great Dark Spot hint
+    ctx.beginPath(); ctx.ellipse(w * 0.35, h * 0.45, 20, 12, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(20,30,80,0.4)"; ctx.fill();
+  } else if (n === "sun") {
+    // Professional sun with granulation and active regions
+    const w2 = w, h2 = h;
+    // Base solar color
+    const bg = ctx.createRadialGradient(w2 / 2, h2 / 2, 0, w2 / 2, h2 / 2, w2 / 2);
+    bg.addColorStop(0, "#fff8e0"); bg.addColorStop(0.3, "#ffcc44"); bg.addColorStop(0.6, "#ff9900"); bg.addColorStop(1, "#ff6600");
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
+
+    // Granulation (convection cells)
+    for (let y = 0; y < h; y += 3) for (let x = 0; x < w; x += 3) {
+      const nx = x / w * 20, ny = y / h * 10;
+      const v = Math.sin(nx * 2.1 + ny * 1.7) * Math.cos(nx * 1.3 - ny * 2.4) * Math.sin(nx * 0.8 + ny * 3.1);
+      const r = 230 + v * 25;
+      const g = 160 + v * 40;
+      const b = 40 + v * 25;
+      ctx.fillStyle = `rgb(${Math.floor(r)},${Math.floor(g)},${Math.floor(Math.max(0, b))})`;
+      ctx.fillRect(x, y, 3, 3);
+    }
+
+    // Sunspots (dark active regions)
+    for (let i = 0; i < 6; i++) {
+      const sx = w * 0.15 + Math.random() * w * 0.7;
+      const sy = h * 0.2 + Math.random() * h * 0.6;
+      const sr = 4 + Math.random() * 12;
+      // Umbra
+      const sg = ctx.createRadialGradient(sx, sy, 0, sx, sy, sr);
+      sg.addColorStop(0, "rgba(40,20,0,0.7)"); sg.addColorStop(0.5, "rgba(80,40,10,0.5)"); sg.addColorStop(1, "rgba(160,100,30,0)");
+      ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(sx, sy, sr, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Bright faculae (hot regions)
+    for (let i = 0; i < 10; i++) {
+      const fx = Math.random() * w, fy = Math.random() * h;
+      const fr = 8 + Math.random() * 20;
+      const fg = ctx.createRadialGradient(fx, fy, 0, fx, fy, fr);
+      fg.addColorStop(0, "rgba(255,255,220,0.35)"); fg.addColorStop(1, "rgba(255,240,180,0)");
+      ctx.fillStyle = fg; ctx.beginPath(); ctx.arc(fx, fy, fr, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Solar prominences at edges
+    for (let i = 0; i < 4; i++) {
+      const ex = i < 2 ? Math.random() * 30 : w - Math.random() * 30;
+      const ey = h * 0.2 + Math.random() * h * 0.6;
+      ctx.strokeStyle = `rgba(255,100,30,${0.3 + Math.random() * 0.3})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(ex, ey);
+      const cx1 = ex + (i < 2 ? -20 : 20), cy1 = ey - 15 - Math.random() * 20;
+      const cx2 = ex + (i < 2 ? -10 : 10), cy2 = ey + 10 + Math.random() * 15;
+      ctx.bezierCurveTo(cx1, cy1, cx2, cy2, ex + (i < 2 ? -5 : 5), ey + 20);
+      ctx.stroke();
     }
   }
   return canvas;
@@ -190,7 +297,7 @@ export interface FocusTarget {
 
 export interface JarvisSceneHandle {
   focusOn: (target: FocusTarget) => void;
-  toggleGhostSim: () => void;
+  toggleAsteroidSim: (id: string) => void;
 }
 
 interface JarvisSceneProps {
@@ -349,114 +456,56 @@ function computeFlyTo(id: string, type: string, pos: THREE.Vector3) {
 }
 
 // ---------------------------------------------------------------------------
-// Probe model builder — more detailed per-probe type
+// Probe model builder
 // ---------------------------------------------------------------------------
 function buildProbeModel(probeName: string): THREE.Group {
   const group = new THREE.Group();
-  const bodyMat = new THREE.MeshStandardMaterial({
-    color: 0xcccccc, emissive: 0x334455, emissiveIntensity: 0.4,
-    roughness: 0.3, metalness: 0.7,
-  });
-  const panelMat = new THREE.MeshStandardMaterial({
-    color: 0x1a4488, emissive: 0x0044aa, emissiveIntensity: 0.3,
-    side: THREE.DoubleSide, roughness: 0.3, metalness: 0.5,
-  });
-  const goldMat = new THREE.MeshStandardMaterial({
-    color: 0xdaa520, emissive: 0x886611, emissiveIntensity: 0.3,
-    roughness: 0.4, metalness: 0.6,
-  });
-
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, emissive: 0x334455, emissiveIntensity: 0.4, roughness: 0.3, metalness: 0.7 });
+  const panelMat = new THREE.MeshStandardMaterial({ color: 0x1a4488, emissive: 0x0044aa, emissiveIntensity: 0.3, side: THREE.DoubleSide, roughness: 0.3, metalness: 0.5 });
+  const goldMat = new THREE.MeshStandardMaterial({ color: 0xdaa520, emissive: 0x886611, emissiveIntensity: 0.3, roughness: 0.4, metalness: 0.6 });
   const name = probeName.toLowerCase();
 
   if (name.includes("voyager")) {
-    // Voyager: decagonal bus + boom + dish
     const bus = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.04, 10), bodyMat);
     group.add(bus);
-    // High-gain antenna dish
-    const dish = new THREE.Mesh(
-      new THREE.SphereGeometry(0.12, 16, 8, 0, Math.PI * 2, 0, Math.PI * 0.4),
-      new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.2, metalness: 0.8, side: THREE.DoubleSide }),
-    );
-    dish.rotation.x = Math.PI;
-    dish.position.y = 0.08;
-    group.add(dish);
-    // Magnetometer boom
+    const dish = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 8, 0, Math.PI * 2, 0, Math.PI * 0.4), new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.2, metalness: 0.8, side: THREE.DoubleSide }));
+    dish.rotation.x = Math.PI; dish.position.y = 0.08; group.add(dish);
     const boom = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.4, 4), bodyMat);
-    boom.position.set(0.2, 0, 0);
-    boom.rotation.z = Math.PI / 2;
-    group.add(boom);
-    // RTG power source
+    boom.position.set(0.2, 0, 0); boom.rotation.z = Math.PI / 2; group.add(boom);
     const rtg = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.1, 6), goldMat);
-    rtg.position.set(-0.12, -0.02, 0);
-    rtg.rotation.z = Math.PI / 4;
-    group.add(rtg);
+    rtg.position.set(-0.12, -0.02, 0); rtg.rotation.z = Math.PI / 4; group.add(rtg);
   } else if (name.includes("jwst")) {
-    // JWST: hexagonal primary mirror + sunshield
-    const mirror = new THREE.Mesh(
-      new THREE.CircleGeometry(0.15, 6),
-      new THREE.MeshStandardMaterial({ color: 0xffd700, roughness: 0.1, metalness: 0.9, side: THREE.DoubleSide }),
-    );
-    mirror.rotation.x = -Math.PI / 6;
-    group.add(mirror);
-    // Sunshield (flat kite shape)
-    const shield = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.3, 0.15),
-      new THREE.MeshStandardMaterial({ color: 0xccccdd, roughness: 0.8, metalness: 0.1, transparent: true, opacity: 0.6, side: THREE.DoubleSide }),
-    );
-    shield.position.y = -0.08;
-    shield.rotation.x = Math.PI / 3;
-    group.add(shield);
+    const mirror = new THREE.Mesh(new THREE.CircleGeometry(0.15, 6), new THREE.MeshStandardMaterial({ color: 0xffd700, roughness: 0.1, metalness: 0.9, side: THREE.DoubleSide }));
+    mirror.rotation.x = -Math.PI / 6; group.add(mirror);
+    const shield = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.15), new THREE.MeshStandardMaterial({ color: 0xccccdd, roughness: 0.8, metalness: 0.1, transparent: true, opacity: 0.6, side: THREE.DoubleSide }));
+    shield.position.y = -0.08; shield.rotation.x = Math.PI / 3; group.add(shield);
   } else if (name.includes("parker")) {
-    // Parker Solar Probe: heat shield + body
-    const heatShield = new THREE.Mesh(
-      new THREE.CircleGeometry(0.1, 16),
-      new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.95, metalness: 0.05, side: THREE.DoubleSide }),
-    );
+    const heatShield = new THREE.Mesh(new THREE.CircleGeometry(0.1, 16), new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.95, metalness: 0.05, side: THREE.DoubleSide }));
     group.add(heatShield);
     const body = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.12, 8), bodyMat);
-    body.position.z = -0.06;
-    body.rotation.x = Math.PI / 2;
-    group.add(body);
-    // Small solar panels
+    body.position.z = -0.06; body.rotation.x = Math.PI / 2; group.add(body);
     const sp = new THREE.Mesh(new THREE.PlaneGeometry(0.08, 0.03), panelMat);
-    sp.position.set(0.07, 0, -0.06);
-    group.add(sp);
-    const sp2 = sp.clone();
-    sp2.position.set(-0.07, 0, -0.06);
-    group.add(sp2);
+    sp.position.set(0.07, 0, -0.06); group.add(sp);
+    const sp2 = sp.clone(); sp2.position.set(-0.07, 0, -0.06); group.add(sp2);
   } else if (name.includes("juno")) {
-    // Juno: 3 large solar panels + body
     const body = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.06, 8), bodyMat);
     group.add(body);
     for (let i = 0; i < 3; i++) {
       const panel = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.06), panelMat);
       const angle = (i * 120 * Math.PI) / 180;
       panel.position.set(Math.cos(angle) * 0.2, 0, Math.sin(angle) * 0.2);
-      panel.rotation.y = angle;
-      group.add(panel);
+      panel.rotation.y = angle; group.add(panel);
     }
   } else {
-    // Generic: box + solar panels + dish
     const body = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.06, 0.1), bodyMat);
     group.add(body);
     const panelL = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.06), panelMat);
-    panelL.position.set(-0.16, 0, 0);
-    panelL.rotation.y = Math.PI / 2;
-    group.add(panelL);
+    panelL.position.set(-0.16, 0, 0); panelL.rotation.y = Math.PI / 2; group.add(panelL);
     const panelR = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.06), panelMat);
-    panelR.position.set(0.16, 0, 0);
-    panelR.rotation.y = Math.PI / 2;
-    group.add(panelR);
-    // Small dish
-    const dish = new THREE.Mesh(
-      new THREE.SphereGeometry(0.06, 12, 6, 0, Math.PI * 2, 0, Math.PI * 0.35),
-      new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.2, metalness: 0.7, side: THREE.DoubleSide }),
-    );
-    dish.rotation.x = Math.PI;
-    dish.position.y = 0.05;
-    group.add(dish);
+    panelR.position.set(0.16, 0, 0); panelR.rotation.y = Math.PI / 2; group.add(panelR);
+    const dish = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 6, 0, Math.PI * 2, 0, Math.PI * 0.35), new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.2, metalness: 0.7, side: THREE.DoubleSide }));
+    dish.rotation.x = Math.PI; dish.position.y = 0.05; group.add(dish);
   }
-
   return group;
 }
 
@@ -487,8 +536,8 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       prevSelectedId: string | null;
       issMesh: THREE.Mesh;
       moonMesh: THREE.Mesh;
-      asteroidAnims: { mesh: THREE.Mesh; speed: number; angle: number; dist: number; approachAngle: number; trail: THREE.Points; initScale: THREE.Vector3; ghostMesh: THREE.Mesh; ghostLabels: THREE.Sprite[]; trajPts: THREE.Vector3[]; simActive: boolean }[];
-      planetAnims: { mesh: THREE.Mesh; angle: number; speed: number; dist: number; tilt: number; selfRotSpeed: number }[];
+      asteroidAnims: { id: string; mesh: THREE.Mesh; speed: number; angle: number; dist: number; approachAngle: number; trail: THREE.Points; initScale: THREE.Vector3; ghostMesh: THREE.Mesh; ghostLabels: THREE.Sprite[]; trajPts: THREE.Vector3[]; trajLine: THREE.Line; simActive: boolean }[];
+      planetAnims: { mesh: THREE.Mesh; angle: number; speed: number; dist: number; tilt: number; visualRotSpeed: number }[];
       scanBand: THREE.Mesh;
       sunCorona: THREE.Mesh;
       sunCoronaOuter: THREE.Mesh;
@@ -496,11 +545,16 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       earthCore: THREE.Mesh;
     } | null>(null);
 
-    // Expose focusOn + toggleGhostSim via ref
+    // Expose focusOn + toggleAsteroidSim via ref
     useImperativeHandle(ref, () => ({
       focusOn: (target: FocusTarget) => {
         if (!internals.current) return;
-        const { objectMap } = internals.current;
+        const { objectMap, asteroidAnims } = internals.current;
+
+        // Hide all trajectories when changing focus
+        for (const aa of asteroidAnims) {
+          aa.trajLine.visible = false;
+        }
 
         if (target.type === "reset" || target.type === "earth") {
           internals.current.flyLook = EARTH_POS.clone();
@@ -517,9 +571,12 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
           const pos = new THREE.Vector3();
           obj.getWorldPosition(pos);
 
-          // Emit object data so HUD shows immediately
           const objData = getObjectData(key, issDataRef.current);
           if (objData) onSelectObject?.(objData);
+
+          // Show trajectory if asteroid
+          const astAnim = asteroidAnims.find(a => a.id === key);
+          if (astAnim) astAnim.trajLine.visible = true;
 
           const { flyTarget, flyLook, dist } = computeFlyTo(key, objData?.type || "object", pos);
           internals.current.flyTarget = flyTarget;
@@ -528,11 +585,13 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
           internals.current.selectedId = key;
         }
       },
-      toggleGhostSim: () => {
+      toggleAsteroidSim: (id: string) => {
         if (!internals.current) return;
-        const anims = internals.current.asteroidAnims;
-        const anyActive = anims.some(a => a.simActive);
-        for (const a of anims) a.simActive = !anyActive;
+        const anim = internals.current.asteroidAnims.find(a => a.id === id);
+        if (anim) {
+          anim.simActive = !anim.simActive;
+          anim.trajLine.visible = true; // show trajectory when sim active
+        }
       },
     }));
 
@@ -564,13 +623,19 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       controls.rotateSpeed = 1.5;
       controls.target.copy(EARTH_POS);
 
-      // Lighting — low ambient so Earth dark side city lights are visible
-      scene.add(new THREE.AmbientLight(0x889aab, 0.15));
-      scene.add(new THREE.HemisphereLight(0xffffff, 0x222244, 0.8));
-      const sunLight = new THREE.PointLight(0xffffff, 2, 300);
+      // Lighting — balanced for day/night effect
+      scene.add(new THREE.AmbientLight(0x889aab, 0.6));
+      scene.add(new THREE.HemisphereLight(0xffffff, 0x222244, 0.5));
+      const sunLight = new THREE.PointLight(0xffffff, 3, 300);
       sunLight.position.copy(SUN_POS);
       scene.add(sunLight);
-      const fillLight = new THREE.PointLight(0x0066ff, 0.5, 100);
+      // Directional light toward Earth for proper day/night
+      const dirLight = new THREE.DirectionalLight(0xfff8e0, 1.5);
+      dirLight.position.copy(SUN_POS);
+      dirLight.target.position.copy(EARTH_POS);
+      scene.add(dirLight);
+      scene.add(dirLight.target);
+      const fillLight = new THREE.PointLight(0x0066ff, 0.3, 100);
       fillLight.position.set(30, 10, 20);
       scene.add(fillLight);
 
@@ -604,7 +669,7 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
           roughness: 0.45, metalness: 0.1,
           emissiveMap: earthNightTex,
           emissive: new THREE.Color(1, 1, 1),
-          emissiveIntensity: 1.5,
+          emissiveIntensity: 0.8,
         }),
       );
       earthCore.position.copy(EARTH_POS);
@@ -660,49 +725,27 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
 
       // ===== ISS — detailed model at actual lat/lon =====
       const issGroup = new THREE.Group();
-      // Central module
-      const issBody = new THREE.Mesh(
-        new THREE.BoxGeometry(0.06, 0.03, 0.03),
-        new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.3, metalness: 0.5 }),
-      );
+      const issBody = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.03, 0.03), new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.3, metalness: 0.5 }));
       issGroup.add(issBody);
-      // Truss
-      const issTruss = new THREE.Mesh(
-        new THREE.BoxGeometry(0.25, 0.005, 0.005),
-        new THREE.MeshStandardMaterial({ color: 0x999999, roughness: 0.4, metalness: 0.6 }),
-      );
+      const issTruss = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.005, 0.005), new THREE.MeshStandardMaterial({ color: 0x999999, roughness: 0.4, metalness: 0.6 }));
       issGroup.add(issTruss);
-      // Solar panels (4 pairs — gold)
-      const issPanelMat = new THREE.MeshStandardMaterial({
-        color: 0xdaa520, emissive: 0x886611, emissiveIntensity: 0.3,
-        roughness: 0.3, metalness: 0.4, side: THREE.DoubleSide,
-      });
+      const issPanelMat = new THREE.MeshStandardMaterial({ color: 0xdaa520, emissive: 0x886611, emissiveIntensity: 0.3, roughness: 0.3, metalness: 0.4, side: THREE.DoubleSide });
       const panelOffsets = [-0.1, -0.05, 0.05, 0.1];
       for (const xOff of panelOffsets) {
         const panel = new THREE.Mesh(new THREE.PlaneGeometry(0.06, 0.03), issPanelMat);
-        panel.position.set(xOff, 0.02, 0);
-        panel.rotation.x = Math.PI / 2;
-        issGroup.add(panel);
-        const panel2 = panel.clone();
-        panel2.position.set(xOff, -0.02, 0);
-        issGroup.add(panel2);
+        panel.position.set(xOff, 0.02, 0); panel.rotation.x = Math.PI / 2; issGroup.add(panel);
+        const panel2 = panel.clone(); panel2.position.set(xOff, -0.02, 0); issGroup.add(panel2);
       }
-      // Radiators (white)
       const radMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0.2, side: THREE.DoubleSide });
       const rad1 = new THREE.Mesh(new THREE.PlaneGeometry(0.02, 0.015), radMat);
-      rad1.position.set(-0.03, 0, 0.02);
-      issGroup.add(rad1);
-      const rad2 = rad1.clone();
-      rad2.position.set(0.03, 0, 0.02);
-      issGroup.add(rad2);
+      rad1.position.set(-0.03, 0, 0.02); issGroup.add(rad1);
+      const rad2 = rad1.clone(); rad2.position.set(0.03, 0, 0.02); issGroup.add(rad2);
 
-      // Position from actual telemetry data
       const issPos3d = latLonToSphere(issData.lat, issData.lon, EARTH_RADIUS + 0.5, EARTH_POS);
       issGroup.position.copy(issPos3d);
-      issGroup.scale.setScalar(2); // make visible
+      issGroup.scale.setScalar(2);
       scene.add(issGroup);
       objectMap.set("iss", issGroup);
-      // Keep issMesh reference for animation
       const issMesh = issGroup as unknown as THREE.Mesh;
 
       // ISS orbit ring
@@ -721,13 +764,11 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       const moonMesh = new THREE.Mesh(
         new THREE.SphereGeometry(MOON_RADIUS, 32, 32),
         new THREE.MeshStandardMaterial({
-          map: moonTex, roughness: 0.9, metalness: 0.05,
-          emissive: new THREE.Color(0x222222), emissiveIntensity: 0.1,
+          map: moonTex, roughness: 0.85, metalness: 0.05,
+          emissive: new THREE.Color(0x444444), emissiveIntensity: 0.2,
         }),
       );
-      // J2000 real-time Moon longitude
-      const daysSinceJ2000 = (Date.now() - Date.UTC(2000, 0, 1, 12, 0, 0)) / 86400000;
-      const moonLonDeg = (218.316 + 13.176396 * daysSinceJ2000) % 360;
+      const moonLonDeg = (218.316 + 13.176396 * DAYS_SINCE_J2000) % 360;
       const moonLonRad = (moonLonDeg * Math.PI) / 180;
       const moonIncRad = (MOON_INCLINATION * Math.PI) / 180;
       moonMesh.position.set(
@@ -738,23 +779,18 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       scene.add(moonMesh);
       objectMap.set("moon", moonMesh);
 
-      // Moon orbit ring
       const moonOrbitRing = createDashedRing(MOON_DIST, 0x888888, 0.08);
       moonOrbitRing.position.copy(EARTH_POS);
-      moonOrbitRing.rotation.x = (MOON_INCLINATION * Math.PI) / 180;
+      moonOrbitRing.rotation.x = moonIncRad;
       scene.add(moonOrbitRing);
 
       const moonLabel = createLabel("MOON", "#AAAAAA", 1);
       moonLabel.position.y = MOON_RADIUS + 0.3;
       moonMesh.add(moonLabel);
 
-      // ===== ASTEROIDS =====
-      const TRAJ_COLORS = [0xff4444, 0xff8800, 0xffcc00, 0x44ff44, 0x00ccff, 0xff44ff];
-      const TRAJ_HEX = ["#FF4444", "#FF8800", "#FFCC00", "#44FF44", "#00CCFF", "#FF44FF"];
+      // ===== ASTEROIDS — trajectories hidden by default, single cyan color =====
       const asteroidAnims: NonNullable<typeof internals.current>["asteroidAnims"] = [];
-      NEO_DATASET.entries.forEach((asteroid, aidx) => {
-        const trajColor = TRAJ_COLORS[aidx % TRAJ_COLORS.length];
-        const trajHex = TRAJ_HEX[aidx % TRAJ_HEX.length];
+      NEO_DATASET.entries.forEach((asteroid) => {
         const scaledDist = asteroid.distanceLD * LD_SCALE;
         const angle = (asteroid.approachAngle * Math.PI) / 180;
         const size = Math.max(0.08, Math.min(asteroid.diameterM / 300, 0.35));
@@ -804,7 +840,7 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         }));
         scene.add(trail);
 
-        // Flyby trajectory — SOLID line, brighter, thicker feel
+        // Flyby trajectory — HIDDEN by default, cyan dashed
         const trajPts: THREE.Vector3[] = [];
         const periapsis = scaledDist;
         const deflection = 0.4 + Math.random() * 0.5;
@@ -821,22 +857,16 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         }
         const trajGeo = new THREE.BufferGeometry().setFromPoints(trajPts);
         const trajLine = new THREE.Line(trajGeo,
-          new THREE.LineBasicMaterial({ color: trajColor, transparent: true, opacity: 0.5 }),
+          new THREE.LineDashedMaterial({ color: 0x00d4ff, transparent: true, opacity: 0.5, dashSize: 0.3, gapSize: 0.15 }),
         );
+        trajLine.computeLineDistances();
+        trajLine.visible = false; // hidden by default
         scene.add(trajLine);
-
-        // Name labels at trajectory start and end
-        const trajStartLbl = createLabel(asteroid.name, trajHex, 0.8);
-        trajStartLbl.position.copy(trajPts[0]).add(new THREE.Vector3(0, 0.3, 0));
-        scene.add(trajStartLbl);
-        const trajEndLbl = createLabel(asteroid.name, trajHex, 0.8);
-        trajEndLbl.position.copy(trajPts[trajPts.length - 1]).add(new THREE.Vector3(0, 0.3, 0));
-        scene.add(trajEndLbl);
 
         // Ghost mesh for flyby simulation (hidden by default)
         const ghostGeo = new THREE.IcosahedronGeometry(size * 0.8, 1);
         const ghostMesh = new THREE.Mesh(ghostGeo, new THREE.MeshBasicMaterial({
-          color: trajColor, transparent: true, opacity: 0.3, wireframe: true,
+          color: 0x00d4ff, transparent: true, opacity: 0.3, wireframe: true,
         }));
         ghostMesh.visible = false;
         scene.add(ghostMesh);
@@ -844,38 +874,37 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         // Ghost timestamp labels along trajectory
         const ghostLabels: THREE.Sprite[] = [];
         const approachDate = new Date(asteroid.closestApproach);
-        const labelIndices = [10, 25, 40, 55, 70]; // positions along trajectory
+        const labelIndices = [10, 25, 40, 55, 70];
         for (const idx of labelIndices) {
-          const hoursOffset = ((idx - 40) / 40) * 48; // ±48h range
+          const hoursOffset = ((idx - 40) / 40) * 48;
           const labelDate = new Date(approachDate.getTime() + hoursOffset * 3600000);
           const timeStr = `${labelDate.getDate()}.${labelDate.getMonth() + 1}. ${labelDate.getHours().toString().padStart(2, "0")}:${labelDate.getMinutes().toString().padStart(2, "0")}`;
-          const lbl = createLabel(timeStr, trajHex, 0.8);
+          const lbl = createLabel(timeStr, "#00D4FF", 0.8);
           lbl.position.copy(trajPts[idx]).add(new THREE.Vector3(0, 0.5, 0));
           lbl.visible = false;
           scene.add(lbl);
           ghostLabels.push(lbl);
         }
 
-        // Name label only (no duplicate HUD) — color matches trajectory
-        const lbl = createLabel(asteroid.name, trajHex, 1.2);
+        // Name label
+        const lbl = createLabel(asteroid.name, asteroid.hazardous ? "#EF4444" : "#FFCF6E", 1.2);
         lbl.position.y = size + 0.4;
         aMesh.add(lbl);
 
         asteroidAnims.push({
-          mesh: aMesh, speed: asteroid.speedKmH * 0.000001,
+          id: asteroid.id, mesh: aMesh, speed: asteroid.speedKmH * 0.000001,
           angle, dist: scaledDist, approachAngle: asteroid.approachAngle,
           trail, initScale: aMesh.scale.clone(),
-          ghostMesh, ghostLabels, trajPts, simActive: false,
+          ghostMesh, ghostLabels, trajPts, trajLine, simActive: false,
         });
       });
 
-      // ===== SUN =====
-      const sunGeo = new THREE.SphereGeometry(3, 32, 32);
-      // Try real texture, fallback to procedural
-      const sunFallback = generatePlanetTexture("sun");
+      // ===== SUN — professional with solar flares =====
+      const sunGeo = new THREE.SphereGeometry(3, 48, 48);
+      const sunFallback = generatePlanetTexture("sun", 1024, 512);
       const sunFallbackTex = new THREE.CanvasTexture(sunFallback);
-      const sunMat = new THREE.MeshStandardMaterial({
-        map: sunFallbackTex, emissive: 0xffaa00, emissiveIntensity: 1.5, roughness: 1, metalness: 0,
+      const sunMat = new THREE.MeshBasicMaterial({
+        map: sunFallbackTex,
       });
       texLoader.load("/textures/sun.jpg", (tex) => { sunMat.map = tex; sunMat.needsUpdate = true; });
       const sunMesh = new THREE.Mesh(sunGeo, sunMat);
@@ -883,23 +912,55 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       scene.add(sunMesh);
       objectMap.set("sun", sunMesh);
 
+      // Inner corona glow
       const sunCorona = new THREE.Mesh(
         new THREE.SphereGeometry(4, 24, 24),
-        new THREE.MeshBasicMaterial({ color: 0xffcc44, transparent: true, opacity: 0.1 }),
+        new THREE.MeshBasicMaterial({ color: 0xffcc44, transparent: true, opacity: 0.12 }),
       );
       sunCorona.position.copy(SUN_POS);
       scene.add(sunCorona);
+      // Outer corona
       const sunCoronaOuter = new THREE.Mesh(
         new THREE.SphereGeometry(6, 24, 24),
-        new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.04 }),
+        new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.05 }),
       );
       sunCoronaOuter.position.copy(SUN_POS);
       scene.add(sunCoronaOuter);
+
+      // Solar flare sprites
+      const solarFlares: THREE.Sprite[] = [];
+      for (let fi = 0; fi < 6; fi++) {
+        const flareCanvas = document.createElement("canvas");
+        flareCanvas.width = 128; flareCanvas.height = 128;
+        const fCtx = flareCanvas.getContext("2d")!;
+        const fg = fCtx.createRadialGradient(64, 64, 0, 64, 64, 60);
+        fg.addColorStop(0, "rgba(255,200,80,0.8)");
+        fg.addColorStop(0.3, "rgba(255,150,30,0.4)");
+        fg.addColorStop(0.7, "rgba(255,100,0,0.1)");
+        fg.addColorStop(1, "rgba(255,50,0,0)");
+        fCtx.fillStyle = fg;
+        fCtx.fillRect(0, 0, 128, 128);
+        const flareTex = new THREE.CanvasTexture(flareCanvas);
+        const flareSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+          map: flareTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.4,
+        }));
+        const flareAngle = (fi / 6) * Math.PI * 2;
+        const flareR = 3.5 + Math.random() * 1;
+        flareSprite.position.set(
+          SUN_POS.x + Math.cos(flareAngle) * flareR,
+          Math.sin(flareAngle) * flareR,
+          SUN_POS.z + (Math.random() - 0.5) * 2,
+        );
+        flareSprite.scale.set(2 + Math.random() * 2, 1.5 + Math.random() * 1.5, 1);
+        scene.add(flareSprite);
+        solarFlares.push(flareSprite);
+      }
+
       const sunLabel = createLabel("SUN", "#FFDD44", 3);
       sunLabel.position.set(SUN_POS.x, SUN_POS.y + 5, SUN_POS.z);
       scene.add(sunLabel);
 
-      // ===== PLANETS — real photo textures with procedural fallback =====
+      // ===== PLANETS — real J2000 positions, realistic rotation =====
       const planetAnims: NonNullable<typeof internals.current>["planetAnims"] = [];
       const planetTexFiles: Record<string, string> = {
         mercury: "/textures/mercury.jpg", venus: "/textures/venus.jpg",
@@ -913,8 +974,6 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         scene.add(orbitRing);
 
         const pGeo = new THREE.SphereGeometry(p.radius, 32, 32);
-
-        // Start with procedural fallback
         const fallbackCanvas = generatePlanetTexture(p.name);
         const fallbackTex = new THREE.CanvasTexture(fallbackCanvas);
         const pMat = new THREE.MeshStandardMaterial({
@@ -922,20 +981,17 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
           roughness: p.gasGiant ? 0.5 : 0.65,
           metalness: p.gasGiant ? 0.1 : 0.15,
           emissive: new THREE.Color(p.color),
-          emissiveIntensity: p.gasGiant ? 0.2 : 0.12,
+          emissiveIntensity: p.gasGiant ? 0.15 : 0.1,
         });
 
-        // Try loading real texture
         const texFile = planetTexFiles[p.name.toLowerCase()];
         if (texFile) {
-          texLoader.load(texFile, (tex) => {
-            pMat.map = tex;
-            pMat.needsUpdate = true;
-          });
+          texLoader.load(texFile, (tex) => { pMat.map = tex; pMat.needsUpdate = true; });
         }
 
         const pMesh = new THREE.Mesh(pGeo, pMat);
-        const startAngle = Math.random() * Math.PI * 2;
+        // Real J2000 position
+        const startAngle = j2000Angle(p.j2000L0, p.j2000Rate);
         pMesh.position.set(SUN_POS.x + Math.cos(startAngle) * p.dist, 0, SUN_POS.z + Math.sin(startAngle) * p.dist);
         pMesh.rotation.z = (p.tilt * Math.PI) / 180;
         scene.add(pMesh);
@@ -947,31 +1003,27 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
             new THREE.RingGeometry(p.radius * 1.3, p.radius * 1.7, 64),
             new THREE.MeshBasicMaterial({ color: 0xe8d5a3, transparent: true, opacity: 0.35, side: THREE.DoubleSide }),
           );
-          ringInner.rotation.x = Math.PI / 2;
-          pMesh.add(ringInner);
+          ringInner.rotation.x = Math.PI / 2; pMesh.add(ringInner);
           const ringGap = new THREE.Mesh(
             new THREE.RingGeometry(p.radius * 1.7, p.radius * 1.75, 64),
             new THREE.MeshBasicMaterial({ color: 0x050710, transparent: true, opacity: 0.6, side: THREE.DoubleSide }),
           );
-          ringGap.rotation.x = Math.PI / 2;
-          pMesh.add(ringGap);
+          ringGap.rotation.x = Math.PI / 2; pMesh.add(ringGap);
           const ringOuter = new THREE.Mesh(
             new THREE.RingGeometry(p.radius * 1.75, p.radius * 2.3, 64),
             new THREE.MeshBasicMaterial({ color: 0xd4c090, transparent: true, opacity: 0.25, side: THREE.DoubleSide }),
           );
-          ringOuter.rotation.x = Math.PI / 2;
-          pMesh.add(ringOuter);
+          ringOuter.rotation.x = Math.PI / 2; pMesh.add(ringOuter);
         }
 
-        // Single name label only
         const lbl = createLabel(p.name.toUpperCase(), p.color, 1.5);
         lbl.position.y = p.radius + 0.5;
         pMesh.add(lbl);
 
-        planetAnims.push({ mesh: pMesh, angle: startAngle, speed: p.speed, dist: p.dist, tilt: p.tilt, selfRotSpeed: p.selfRot });
+        planetAnims.push({ mesh: pMesh, angle: startAngle, speed: p.speed, dist: p.dist, tilt: p.tilt, visualRotSpeed: p.visualRotSpeed });
       });
 
-      // ===== PROBES — detailed per-type models =====
+      // ===== PROBES =====
       PROBES_DATASET.entries.forEach((probe) => {
         const scaledDist = probe.distanceAU > 10
           ? 60 + Math.log10(probe.distanceAU / 10) * 30
@@ -985,7 +1037,6 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         scene.add(probeGroup);
         objectMap.set(probe.id, probeGroup);
 
-        // Trajectory
         const trajPts: THREE.Vector3[] = [];
         for (let i = 0; i <= 40; i++) {
           const t = i / 40;
@@ -1000,49 +1051,47 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         trajLine.computeLineDistances();
         scene.add(trajLine);
 
-        // Single name label only (no duplicate distance HUD)
         const lbl = createLabel(probe.name, "#00D4FF", 1.5);
         lbl.position.y = 0.6;
         probeGroup.add(lbl);
       });
 
-      // ===== NEBULA SPRITE CLOUDS =====
+      // ===== NEBULA SPRITE CLOUDS — more visible =====
       const nebulaColors = [
         [0.4, 0.1, 0.6], [0.1, 0.2, 0.7], [0.6, 0.15, 0.4],
         [0.1, 0.5, 0.5], [0.7, 0.3, 0.1], [0.3, 0.1, 0.5],
         [0.15, 0.3, 0.6], [0.5, 0.1, 0.3], [0.2, 0.4, 0.4],
-        [0.6, 0.2, 0.5],
+        [0.6, 0.2, 0.5], [0.25, 0.15, 0.55], [0.45, 0.2, 0.35],
       ];
-      for (let ni = 0; ni < 10; ni++) {
+      for (let ni = 0; ni < 12; ni++) {
         const nebCanvas = document.createElement("canvas");
         nebCanvas.width = 256;
         nebCanvas.height = 256;
         const nCtx = nebCanvas.getContext("2d")!;
         const [nr, ng, nb] = nebulaColors[ni];
-        // Radial gradient blob with noise
         const cx = 128 + (Math.random() - 0.5) * 40;
         const cy = 128 + (Math.random() - 0.5) * 40;
         const outerR = 80 + Math.random() * 40;
         const grad = nCtx.createRadialGradient(cx, cy, 0, cx, cy, outerR);
-        grad.addColorStop(0, `rgba(${Math.floor(nr * 255)},${Math.floor(ng * 255)},${Math.floor(nb * 255)},0.6)`);
-        grad.addColorStop(0.4, `rgba(${Math.floor(nr * 200)},${Math.floor(ng * 200)},${Math.floor(nb * 200)},0.3)`);
+        grad.addColorStop(0, `rgba(${Math.floor(nr * 255)},${Math.floor(ng * 255)},${Math.floor(nb * 255)},0.7)`);
+        grad.addColorStop(0.3, `rgba(${Math.floor(nr * 230)},${Math.floor(ng * 230)},${Math.floor(nb * 230)},0.4)`);
+        grad.addColorStop(0.6, `rgba(${Math.floor(nr * 200)},${Math.floor(ng * 200)},${Math.floor(nb * 200)},0.15)`);
         grad.addColorStop(1, "rgba(0,0,0,0)");
         nCtx.fillStyle = grad;
         nCtx.fillRect(0, 0, 256, 256);
-        // Add some noise dots
-        for (let d = 0; d < 60; d++) {
+        for (let d = 0; d < 80; d++) {
           const dx = Math.random() * 256, dy = Math.random() * 256;
           const distFromCenter = Math.sqrt((dx - cx) ** 2 + (dy - cy) ** 2);
           if (distFromCenter < outerR) {
-            nCtx.fillStyle = `rgba(${Math.floor(nr * 255 + 50)},${Math.floor(ng * 255 + 50)},${Math.floor(nb * 255 + 50)},${0.1 + Math.random() * 0.15})`;
+            nCtx.fillStyle = `rgba(${Math.floor(nr * 255 + 60)},${Math.floor(ng * 255 + 60)},${Math.floor(nb * 255 + 60)},${0.1 + Math.random() * 0.2})`;
             nCtx.beginPath();
-            nCtx.arc(dx, dy, 2 + Math.random() * 5, 0, Math.PI * 2);
+            nCtx.arc(dx, dy, 2 + Math.random() * 6, 0, Math.PI * 2);
             nCtx.fill();
           }
         }
         const nebTex = new THREE.CanvasTexture(nebCanvas);
         const nebSprite = new THREE.Sprite(new THREE.SpriteMaterial({
-          map: nebTex, transparent: true, opacity: 0.03 + Math.random() * 0.05,
+          map: nebTex, transparent: true, opacity: 0.12 + Math.random() * 0.13,
           blending: THREE.AdditiveBlending, depthWrite: false,
         }));
         const nebDist = 80 + Math.random() * 70;
@@ -1053,7 +1102,7 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
           Math.sin(nebPhi) * nebDist,
           Math.sin(nebTheta) * Math.cos(nebPhi) * nebDist,
         );
-        const nebScale = 20 + Math.random() * 30;
+        const nebScale = 25 + Math.random() * 35;
         nebSprite.scale.set(nebScale, nebScale, 1);
         scene.add(nebSprite);
       }
@@ -1121,6 +1170,11 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
             if (objData) {
               onSelectObject?.(objData);
 
+              // Hide all trajectories, show only selected asteroid's
+              for (const aa of asteroidAnims) aa.trajLine.visible = false;
+              const astAnim = asteroidAnims.find(a => a.id === id);
+              if (astAnim) astAnim.trajLine.visible = true;
+
               const pos = new THREE.Vector3();
               objectMap.get(id)!.getWorldPosition(pos);
               const { flyTarget, flyLook, dist } = computeFlyTo(id, objData.type, pos);
@@ -1152,11 +1206,10 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         const delta = Math.min(clock.getDelta(), 0.05);
         const elapsed = clock.getElapsedTime();
 
-        // ISS — subtle eastward drift from real lat/lon (no spinning)
-        issMesh.position.x += delta * 0.001;
-        issMesh.position.z += delta * 0.0005;
+        // ISS — static at real position (no drift, no spinning)
+        // Position is fixed from init, no updates needed
 
-        // Moon — static J2000 position (moves ~13°/day, barely visible in real-time)
+        // Moon — static J2000 position, slow tidally-locked rotation
         moonMesh.rotation.y += delta * 0.02;
 
         // Earth rotation
@@ -1198,9 +1251,9 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
           aa.mesh.rotation.x += delta * 0.5;
           aa.mesh.rotation.z += delta * 0.3;
 
-          // Ghost simulation
+          // Ghost simulation — per asteroid
           if (aa.simActive) {
-            const ghostT = ((elapsed * 0.5) % 1); // loop 0→1
+            const ghostT = ((elapsed * 0.5) % 1);
             const ghostIdx = Math.floor(ghostT * (aa.trajPts.length - 1));
             const pt = aa.trajPts[Math.min(ghostIdx, aa.trajPts.length - 1)];
             aa.ghostMesh.position.copy(pt);
@@ -1213,23 +1266,33 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
           }
         }
 
-        // Planets
+        // Planets — realistic visual rotation speeds
         const orbitActive = !interacting || idleTime > 10;
         for (const pa of planetAnims) {
           if (orbitActive) {
             pa.angle += pa.speed * delta;
             pa.mesh.position.set(SUN_POS.x + Math.cos(pa.angle) * pa.dist, 0, SUN_POS.z + Math.sin(pa.angle) * pa.dist);
           }
-          pa.mesh.rotation.y += Math.min(pa.selfRotSpeed * delta, delta * 2);
+          pa.mesh.rotation.y += pa.visualRotSpeed * delta;
         }
 
-        // Sun
-        const coronaOpacity = 0.08 + Math.sin(elapsed * 1.5) * 0.03;
+        // Sun + solar flares
+        const coronaOpacity = 0.10 + Math.sin(elapsed * 1.5) * 0.04;
         (sunCorona.material as THREE.MeshBasicMaterial).opacity = coronaOpacity;
         sunCorona.scale.setScalar(1 + Math.sin(elapsed * 0.8) * 0.05);
         sunCoronaOuter.scale.setScalar(1 + Math.sin(elapsed * 0.5) * 0.08);
-        (sunCoronaOuter.material as THREE.MeshBasicMaterial).opacity = 0.03 + Math.sin(elapsed * 1.2) * 0.015;
-        sunMesh.rotation.y += delta * 0.02;
+        (sunCoronaOuter.material as THREE.MeshBasicMaterial).opacity = 0.04 + Math.sin(elapsed * 1.2) * 0.02;
+        sunMesh.rotation.y += delta * 0.01;
+
+        // Animate solar flares
+        for (let fi = 0; fi < solarFlares.length; fi++) {
+          const flare = solarFlares[fi];
+          const phase = elapsed * (0.3 + fi * 0.1) + fi * 1.5;
+          const scaleF = 1 + Math.sin(phase) * 0.4;
+          flare.scale.x = (2 + fi * 0.3) * scaleF;
+          flare.scale.y = (1.5 + fi * 0.2) * scaleF;
+          (flare.material as THREE.SpriteMaterial).opacity = 0.2 + Math.sin(phase * 0.7) * 0.2;
+        }
 
         // Pulse selected (only asteroids/probes)
         if (state.selectedId) {

@@ -20,6 +20,7 @@ import {
   LAUNCH_DATA,
   getTelemetryStub,
 } from "@/lib/space-tracker-data";
+// NEO_DATASET also used for asteroid ID lookup in handleObjectSelect
 import { playSound } from "@/lib/sounds";
 import type { FocusTarget, JarvisSceneHandle } from "./JarvisScene";
 
@@ -109,7 +110,7 @@ function AsteroidDistanceBar({ asteroid }: { asteroid: AsteroidDetail }) {
   );
 }
 
-function JarvisTerminalHUD({ obj, onClose }: { obj: { type: string; name: string; data: Record<string, string> }; onClose: () => void }) {
+function JarvisTerminalHUD({ obj, onClose, onSimToggle }: { obj: { type: string; name: string; data: Record<string, string> }; onClose: () => void; onSimToggle?: () => void }) {
   const [displayedText, setDisplayedText] = useState("");
   const audioCtxRef = useRef<AudioContext | null>(null);
 
@@ -191,11 +192,19 @@ function JarvisTerminalHUD({ obj, onClose }: { obj: { type: string; name: string
             )}
           </div>
         ))}
-        {/* Blinking cursor */}
-        {displayedText.length < fullText.length && (
-          <span className="text-cyan-400 animate-pulse">▌</span>
-        )}
+        {/* Blinking terminal cursor — always visible */}
+        <span className={`text-cyan-400 ${displayedText.length >= fullText.length ? "animate-pulse" : ""}`}>▌</span>
       </pre>
+
+      {/* Sim button for asteroids */}
+      {onSimToggle && (
+        <button
+          onClick={onSimToggle}
+          className="mt-1.5 w-full flex items-center justify-center gap-1 py-1 rounded bg-cyan-400/10 border border-cyan-400/20 text-[9px] font-mono text-cyan-400/70 hover:bg-cyan-400/20 transition-colors cursor-pointer"
+        >
+          SIMULACIJA
+        </button>
+      )}
 
       {/* Bottom scanline */}
       <div className="h-px bg-gradient-to-r from-transparent via-cyan-400/20 to-transparent mt-1.5" />
@@ -317,6 +326,7 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
   const { data } = useSpaceProData();
   const jarvisRef = useRef<JarvisSceneHandle>(null);
   const [selectedAsteroid, setSelectedAsteroid] = useState<AsteroidDetail | null>(null);
+  const [selectedAsteroidId, setSelectedAsteroidId] = useState<string | null>(null);
   const [sceneSize, setSceneSize] = useState({ w: 500, h: 500 });
   const [hudObj, setHudObj] = useState<{ type: string; name: string; data: Record<string, string> } | null>(null);
   const [showTelemetry, setShowTelemetry] = useState(false);
@@ -409,6 +419,13 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
 
   const handleObjectSelect = useCallback((obj: { type: string; name: string; data: Record<string, string> } | null) => {
     setHudObj(obj);
+    if (obj && obj.type === "Asteroid") {
+      // Find asteroid id by name from NEO_DATASET
+      const neo = NEO_DATASET.entries.find(n => n.name === obj.name);
+      setSelectedAsteroidId(neo?.id || null);
+    } else {
+      setSelectedAsteroidId(null);
+    }
     if (obj) playSound("dataStream");
   }, []);
 
@@ -452,7 +469,14 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
           {/* HUD overlay — Jarvis terminal style */}
           {hudObj && hudObj.name && (
             <div className="absolute bottom-4 left-4 z-10">
-              <JarvisTerminalHUD obj={hudObj} onClose={() => setHudObj(null)} />
+              <JarvisTerminalHUD
+                obj={hudObj}
+                onClose={() => setHudObj(null)}
+                onSimToggle={hudObj.type === "Asteroid" && selectedAsteroidId ? () => {
+                  jarvisRef.current?.toggleAsteroidSim(selectedAsteroidId);
+                  playSound("ping");
+                } : undefined}
+              />
             </div>
           )}
 
@@ -627,14 +651,6 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
                     </div>
                   </div>
                 )}
-
-                <button
-                  onClick={() => { jarvisRef.current?.toggleGhostSim(); playSound("ping"); }}
-                  className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-cyan-400/5 border border-cyan-400/15 text-[10px] font-mono text-cyan-400/60 hover:bg-cyan-400/10 transition-colors cursor-pointer"
-                >
-                  <Activity className="w-3 h-3" />
-                  SIMULACIJA
-                </button>
 
                 <button onClick={() => { focusOn({ type: "sun" }); playSound("ping"); }} className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-amber-400/5 border border-amber-400/15 text-[10px] font-mono text-accent-amber/60 hover:bg-amber-400/10 transition-colors cursor-pointer">
                   Sunčev Sustav Overview
