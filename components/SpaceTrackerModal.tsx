@@ -134,25 +134,25 @@ function JarvisTerminalHUD({ obj, onClose }: { obj: { type: string; name: string
       const gain = ctx.createGain();
       osc.connect(gain);
       gain.connect(ctx.destination);
-      osc.frequency.value = 800 + Math.random() * 400;
-      osc.type = "square";
-      gain.gain.value = 0.015;
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.03);
+      osc.frequency.value = 300 + Math.random() * 200;
+      osc.type = "sine";
+      gain.gain.value = 0.008;
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.02);
       osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.03);
+      osc.stop(ctx.currentTime + 0.02);
     } catch { /* audio not available */ }
   }, []);
 
   useEffect(() => {
     setDisplayedText("");
     let charIdx = 0;
-    const speed = 18; // ms per character
+    const speed = 8; // ms per character
     const timer = setInterval(() => {
       if (charIdx < fullText.length) {
         setDisplayedText(fullText.slice(0, charIdx + 1));
-        // Play tick for visible characters only
+        // Play tick every 3rd visible character only
         const ch = fullText[charIdx];
-        if (ch !== " " && ch !== "\n" && ch !== "─") playTypeTick();
+        if (ch !== " " && ch !== "\n" && ch !== "─" && charIdx % 3 === 0) playTypeTick();
         charIdx++;
       } else {
         clearInterval(timer);
@@ -321,6 +321,7 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
   const [hudObj, setHudObj] = useState<{ type: string; name: string; data: Record<string, string> } | null>(null);
   const [showTelemetry, setShowTelemetry] = useState(false);
   const [booting, setBooting] = useState(true);
+  const [isLandscape, setIsLandscape] = useState(false);
 
   useEffect(() => { if (mode !== "overview") setActiveTab(mode); }, [mode]);
 
@@ -332,20 +333,34 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
     }
   }, [open]);
 
-  // Responsive sizing
+  // Responsive sizing + landscape detection
   useEffect(() => {
     if (!open) return;
     function calcSize() {
-      const isMobile = window.innerWidth < 640;
-      const sidebarW = isMobile ? 0 : 380;
-      setSceneSize({
-        w: Math.max(window.innerWidth - sidebarW, 300),
-        h: isMobile ? Math.round(window.innerHeight * 0.45) : window.innerHeight,
-      });
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const isMobile = vw < 640;
+      const landscape = vw > vh && vw < 1024;
+      setIsLandscape(landscape);
+      if (landscape) {
+        // Landscape mobile: side-by-side, scene takes 65%
+        const sceneW = Math.round(vw * 0.65);
+        setSceneSize({ w: sceneW, h: vh });
+      } else {
+        const sidebarW = isMobile ? 0 : 380;
+        setSceneSize({
+          w: Math.max(vw - sidebarW, 300),
+          h: isMobile ? Math.round(vh * 0.45) : vh,
+        });
+      }
     }
     calcSize();
     window.addEventListener("resize", calcSize);
-    return () => window.removeEventListener("resize", calcSize);
+    window.addEventListener("orientationchange", calcSize);
+    return () => {
+      window.removeEventListener("resize", calcSize);
+      window.removeEventListener("orientationchange", calcSize);
+    };
   }, [open]);
 
   const handleClose = useCallback(() => {
@@ -413,9 +428,9 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
       />
 
       {/* Content */}
-      <div className="relative z-10 flex flex-col sm:flex-row w-full h-full">
+      <div className={`relative z-10 flex w-full h-full ${isLandscape ? "flex-row" : "flex-col sm:flex-row"}`}>
         {/* 3D Scene */}
-        <div className="flex-1 relative min-h-[45vh] sm:min-h-0 bg-[#030509] min-w-0 overflow-hidden">
+        <div className={`relative bg-[#030509] min-w-0 overflow-hidden ${isLandscape ? "w-[65%]" : "flex-1 min-h-[45vh] sm:min-h-0"}`}>
           {/* Boot overlay */}
           {booting && <BootOverlay onDone={handleBootDone} />}
 
@@ -456,7 +471,7 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
         </div>
 
         {/* Sidebar */}
-        <div className="w-full sm:w-[380px] shrink-0 bg-space-bg/95 backdrop-blur-xl border-l border-cyan-500/20 overflow-y-auto flex flex-col max-h-[55vh] sm:max-h-full">
+        <div className={`shrink-0 bg-space-bg/95 backdrop-blur-xl border-l border-cyan-500/20 overflow-y-auto flex flex-col ${isLandscape ? "w-[35%] max-h-full" : "w-full sm:w-[380px] max-h-[55vh] sm:max-h-full"}`}>
           {/* Tabs */}
           <div className="flex border-b border-cyan-500/20 shrink-0">
             {TABS.map((tab) => {
@@ -527,6 +542,17 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
                   {showTelemetry ? "Sakrij" : "Telemetrija"}
                 </button>
                 {showTelemetry && <TelemetryPanel objectId="iss" />}
+
+                {/* APOD — Slika Dana */}
+                {data.apod && (
+                  <div className="glass-card p-3 space-y-1.5 !hover:transform-none border-amber-500/20">
+                    <h4 className="text-[11px] font-mono text-accent-amber">SLIKA DANA // APOD</h4>
+                    <div className="h-px bg-gradient-to-r from-transparent via-amber-400/20 to-transparent" />
+                    <p className="text-[11px] font-mono font-bold text-text-primary">{data.apod.title}</p>
+                    <p className="text-[10px] text-text-secondary leading-relaxed">{data.apod.description}</p>
+                    <p className="text-[9px] font-mono text-text-secondary/40">{data.apod.date} — NASA APOD</p>
+                  </div>
+                )}
 
                 {/* Probes section */}
                 <div className="glass-card p-3 space-y-2 !hover:transform-none border-cyan-500/20">
@@ -601,6 +627,14 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
                     </div>
                   </div>
                 )}
+
+                <button
+                  onClick={() => { jarvisRef.current?.toggleGhostSim(); playSound("ping"); }}
+                  className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-cyan-400/5 border border-cyan-400/15 text-[10px] font-mono text-cyan-400/60 hover:bg-cyan-400/10 transition-colors cursor-pointer"
+                >
+                  <Activity className="w-3 h-3" />
+                  SIMULACIJA
+                </button>
 
                 <button onClick={() => { focusOn({ type: "sun" }); playSound("ping"); }} className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-amber-400/5 border border-amber-400/15 text-[10px] font-mono text-accent-amber/60 hover:bg-amber-400/10 transition-colors cursor-pointer">
                   Sunčev Sustav Overview

@@ -190,6 +190,7 @@ export interface FocusTarget {
 
 export interface JarvisSceneHandle {
   focusOn: (target: FocusTarget) => void;
+  toggleGhostSim: () => void;
 }
 
 interface JarvisSceneProps {
@@ -495,7 +496,7 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       earthCore: THREE.Mesh;
     } | null>(null);
 
-    // Expose focusOn via ref — now also emits onSelectObject
+    // Expose focusOn + toggleGhostSim via ref
     useImperativeHandle(ref, () => ({
       focusOn: (target: FocusTarget) => {
         if (!internals.current) return;
@@ -527,6 +528,12 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
           internals.current.selectedId = key;
         }
       },
+      toggleGhostSim: () => {
+        if (!internals.current) return;
+        const anims = internals.current.asteroidAnims;
+        const anyActive = anims.some(a => a.simActive);
+        for (const a of anims) a.simActive = !anyActive;
+      },
     }));
 
     useEffect(() => {
@@ -557,8 +564,8 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       controls.rotateSpeed = 1.5;
       controls.target.copy(EARTH_POS);
 
-      // Lighting
-      scene.add(new THREE.AmbientLight(0x889aab, 2.5));
+      // Lighting — low ambient so Earth dark side city lights are visible
+      scene.add(new THREE.AmbientLight(0x889aab, 0.15));
       scene.add(new THREE.HemisphereLight(0xffffff, 0x222244, 0.8));
       const sunLight = new THREE.PointLight(0xffffff, 2, 300);
       sunLight.position.copy(SUN_POS);
@@ -586,15 +593,18 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       // ===== TEXTURE LOADER =====
       const texLoader = new THREE.TextureLoader();
 
-      // ===== EARTH =====
+      // ===== EARTH — day/night with city lights emissiveMap =====
       const earthDayTex = texLoader.load("/textures/earth_day.jpg");
       const earthBumpTex = texLoader.load("/textures/earth_bump.jpg");
+      const earthNightTex = texLoader.load("/textures/earth_night.jpg");
       const earthCore = new THREE.Mesh(
         new THREE.SphereGeometry(EARTH_RADIUS, 64, 64),
         new THREE.MeshStandardMaterial({
           map: earthDayTex, bumpMap: earthBumpTex, bumpScale: 0.03,
           roughness: 0.45, metalness: 0.1,
-          emissive: new THREE.Color(0x112244), emissiveIntensity: 0.15,
+          emissiveMap: earthNightTex,
+          emissive: new THREE.Color(1, 1, 1),
+          emissiveIntensity: 1.5,
         }),
       );
       earthCore.position.copy(EARTH_POS);
@@ -648,16 +658,52 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         earthCore.add(lbl);
       });
 
-      // ===== ISS — placed at actual lat/lon =====
-      const issMesh = new THREE.Mesh(
-        new THREE.OctahedronGeometry(0.08, 0),
-        new THREE.MeshBasicMaterial({ color: 0x00d4ff }),
+      // ===== ISS — detailed model at actual lat/lon =====
+      const issGroup = new THREE.Group();
+      // Central module
+      const issBody = new THREE.Mesh(
+        new THREE.BoxGeometry(0.06, 0.03, 0.03),
+        new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.3, metalness: 0.5 }),
       );
+      issGroup.add(issBody);
+      // Truss
+      const issTruss = new THREE.Mesh(
+        new THREE.BoxGeometry(0.25, 0.005, 0.005),
+        new THREE.MeshStandardMaterial({ color: 0x999999, roughness: 0.4, metalness: 0.6 }),
+      );
+      issGroup.add(issTruss);
+      // Solar panels (4 pairs — gold)
+      const issPanelMat = new THREE.MeshStandardMaterial({
+        color: 0xdaa520, emissive: 0x886611, emissiveIntensity: 0.3,
+        roughness: 0.3, metalness: 0.4, side: THREE.DoubleSide,
+      });
+      const panelOffsets = [-0.1, -0.05, 0.05, 0.1];
+      for (const xOff of panelOffsets) {
+        const panel = new THREE.Mesh(new THREE.PlaneGeometry(0.06, 0.03), issPanelMat);
+        panel.position.set(xOff, 0.02, 0);
+        panel.rotation.x = Math.PI / 2;
+        issGroup.add(panel);
+        const panel2 = panel.clone();
+        panel2.position.set(xOff, -0.02, 0);
+        issGroup.add(panel2);
+      }
+      // Radiators (white)
+      const radMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0.2, side: THREE.DoubleSide });
+      const rad1 = new THREE.Mesh(new THREE.PlaneGeometry(0.02, 0.015), radMat);
+      rad1.position.set(-0.03, 0, 0.02);
+      issGroup.add(rad1);
+      const rad2 = rad1.clone();
+      rad2.position.set(0.03, 0, 0.02);
+      issGroup.add(rad2);
+
       // Position from actual telemetry data
       const issPos3d = latLonToSphere(issData.lat, issData.lon, EARTH_RADIUS + 0.5, EARTH_POS);
-      issMesh.position.copy(issPos3d);
-      scene.add(issMesh);
-      objectMap.set("iss", issMesh);
+      issGroup.position.copy(issPos3d);
+      issGroup.scale.setScalar(2); // make visible
+      scene.add(issGroup);
+      objectMap.set("iss", issGroup);
+      // Keep issMesh reference for animation
+      const issMesh = issGroup as unknown as THREE.Mesh;
 
       // ISS orbit ring
       const issOrbitGroup = new THREE.Group();
@@ -670,7 +716,7 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       issLabel.position.y = 0.3;
       issMesh.add(issLabel);
 
-      // ===== MOON =====
+      // ===== MOON — real-time J2000 position =====
       const moonTex = texLoader.load("/textures/moon.jpg");
       const moonMesh = new THREE.Mesh(
         new THREE.SphereGeometry(MOON_RADIUS, 32, 32),
@@ -679,8 +725,16 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
           emissive: new THREE.Color(0x222222), emissiveIntensity: 0.1,
         }),
       );
-      // Initial position
-      moonMesh.position.set(EARTH_POS.x + MOON_DIST, EARTH_POS.y, EARTH_POS.z);
+      // J2000 real-time Moon longitude
+      const daysSinceJ2000 = (Date.now() - Date.UTC(2000, 0, 1, 12, 0, 0)) / 86400000;
+      const moonLonDeg = (218.316 + 13.176396 * daysSinceJ2000) % 360;
+      const moonLonRad = (moonLonDeg * Math.PI) / 180;
+      const moonIncRad = (MOON_INCLINATION * Math.PI) / 180;
+      moonMesh.position.set(
+        EARTH_POS.x + Math.cos(moonLonRad) * MOON_DIST,
+        EARTH_POS.y + Math.sin(moonLonRad) * Math.sin(moonIncRad) * MOON_DIST * 0.3,
+        EARTH_POS.z + Math.sin(moonLonRad) * MOON_DIST,
+      );
       scene.add(moonMesh);
       objectMap.set("moon", moonMesh);
 
@@ -695,8 +749,12 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       moonMesh.add(moonLabel);
 
       // ===== ASTEROIDS =====
+      const TRAJ_COLORS = [0xff4444, 0xff8800, 0xffcc00, 0x44ff44, 0x00ccff, 0xff44ff];
+      const TRAJ_HEX = ["#FF4444", "#FF8800", "#FFCC00", "#44FF44", "#00CCFF", "#FF44FF"];
       const asteroidAnims: NonNullable<typeof internals.current>["asteroidAnims"] = [];
-      NEO_DATASET.entries.forEach((asteroid) => {
+      NEO_DATASET.entries.forEach((asteroid, aidx) => {
+        const trajColor = TRAJ_COLORS[aidx % TRAJ_COLORS.length];
+        const trajHex = TRAJ_HEX[aidx % TRAJ_HEX.length];
         const scaledDist = asteroid.distanceLD * LD_SCALE;
         const angle = (asteroid.approachAngle * Math.PI) / 180;
         const size = Math.max(0.08, Math.min(asteroid.diameterM / 300, 0.35));
@@ -763,14 +821,22 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         }
         const trajGeo = new THREE.BufferGeometry().setFromPoints(trajPts);
         const trajLine = new THREE.Line(trajGeo,
-          new THREE.LineBasicMaterial({ color: asteroid.hazardous ? 0xef4444 : 0xffcf6e, transparent: true, opacity: 0.5 }),
+          new THREE.LineBasicMaterial({ color: trajColor, transparent: true, opacity: 0.5 }),
         );
         scene.add(trajLine);
+
+        // Name labels at trajectory start and end
+        const trajStartLbl = createLabel(asteroid.name, trajHex, 0.8);
+        trajStartLbl.position.copy(trajPts[0]).add(new THREE.Vector3(0, 0.3, 0));
+        scene.add(trajStartLbl);
+        const trajEndLbl = createLabel(asteroid.name, trajHex, 0.8);
+        trajEndLbl.position.copy(trajPts[trajPts.length - 1]).add(new THREE.Vector3(0, 0.3, 0));
+        scene.add(trajEndLbl);
 
         // Ghost mesh for flyby simulation (hidden by default)
         const ghostGeo = new THREE.IcosahedronGeometry(size * 0.8, 1);
         const ghostMesh = new THREE.Mesh(ghostGeo, new THREE.MeshBasicMaterial({
-          color: asteroid.hazardous ? 0xef4444 : 0xffcf6e, transparent: true, opacity: 0.3, wireframe: true,
+          color: trajColor, transparent: true, opacity: 0.3, wireframe: true,
         }));
         ghostMesh.visible = false;
         scene.add(ghostMesh);
@@ -783,15 +849,15 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
           const hoursOffset = ((idx - 40) / 40) * 48; // ±48h range
           const labelDate = new Date(approachDate.getTime() + hoursOffset * 3600000);
           const timeStr = `${labelDate.getDate()}.${labelDate.getMonth() + 1}. ${labelDate.getHours().toString().padStart(2, "0")}:${labelDate.getMinutes().toString().padStart(2, "0")}`;
-          const lbl = createLabel(timeStr, asteroid.hazardous ? "#EF4444" : "#FFCF6E", 0.8);
+          const lbl = createLabel(timeStr, trajHex, 0.8);
           lbl.position.copy(trajPts[idx]).add(new THREE.Vector3(0, 0.5, 0));
           lbl.visible = false;
           scene.add(lbl);
           ghostLabels.push(lbl);
         }
 
-        // Name label only (no duplicate HUD)
-        const lbl = createLabel(asteroid.name, asteroid.hazardous ? "#EF4444" : "#FFCF6E", 1.2);
+        // Name label only (no duplicate HUD) — color matches trajectory
+        const lbl = createLabel(asteroid.name, trajHex, 1.2);
         lbl.position.y = size + 0.4;
         aMesh.add(lbl);
 
@@ -940,6 +1006,58 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         probeGroup.add(lbl);
       });
 
+      // ===== NEBULA SPRITE CLOUDS =====
+      const nebulaColors = [
+        [0.4, 0.1, 0.6], [0.1, 0.2, 0.7], [0.6, 0.15, 0.4],
+        [0.1, 0.5, 0.5], [0.7, 0.3, 0.1], [0.3, 0.1, 0.5],
+        [0.15, 0.3, 0.6], [0.5, 0.1, 0.3], [0.2, 0.4, 0.4],
+        [0.6, 0.2, 0.5],
+      ];
+      for (let ni = 0; ni < 10; ni++) {
+        const nebCanvas = document.createElement("canvas");
+        nebCanvas.width = 256;
+        nebCanvas.height = 256;
+        const nCtx = nebCanvas.getContext("2d")!;
+        const [nr, ng, nb] = nebulaColors[ni];
+        // Radial gradient blob with noise
+        const cx = 128 + (Math.random() - 0.5) * 40;
+        const cy = 128 + (Math.random() - 0.5) * 40;
+        const outerR = 80 + Math.random() * 40;
+        const grad = nCtx.createRadialGradient(cx, cy, 0, cx, cy, outerR);
+        grad.addColorStop(0, `rgba(${Math.floor(nr * 255)},${Math.floor(ng * 255)},${Math.floor(nb * 255)},0.6)`);
+        grad.addColorStop(0.4, `rgba(${Math.floor(nr * 200)},${Math.floor(ng * 200)},${Math.floor(nb * 200)},0.3)`);
+        grad.addColorStop(1, "rgba(0,0,0,0)");
+        nCtx.fillStyle = grad;
+        nCtx.fillRect(0, 0, 256, 256);
+        // Add some noise dots
+        for (let d = 0; d < 60; d++) {
+          const dx = Math.random() * 256, dy = Math.random() * 256;
+          const distFromCenter = Math.sqrt((dx - cx) ** 2 + (dy - cy) ** 2);
+          if (distFromCenter < outerR) {
+            nCtx.fillStyle = `rgba(${Math.floor(nr * 255 + 50)},${Math.floor(ng * 255 + 50)},${Math.floor(nb * 255 + 50)},${0.1 + Math.random() * 0.15})`;
+            nCtx.beginPath();
+            nCtx.arc(dx, dy, 2 + Math.random() * 5, 0, Math.PI * 2);
+            nCtx.fill();
+          }
+        }
+        const nebTex = new THREE.CanvasTexture(nebCanvas);
+        const nebSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+          map: nebTex, transparent: true, opacity: 0.03 + Math.random() * 0.05,
+          blending: THREE.AdditiveBlending, depthWrite: false,
+        }));
+        const nebDist = 80 + Math.random() * 70;
+        const nebTheta = Math.random() * Math.PI * 2;
+        const nebPhi = (Math.random() - 0.5) * Math.PI * 0.6;
+        nebSprite.position.set(
+          Math.cos(nebTheta) * Math.cos(nebPhi) * nebDist,
+          Math.sin(nebPhi) * nebDist,
+          Math.sin(nebTheta) * Math.cos(nebPhi) * nebDist,
+        );
+        const nebScale = 20 + Math.random() * 30;
+        nebSprite.scale.set(nebScale, nebScale, 1);
+        scene.add(nebSprite);
+      }
+
       // ===== GRID =====
       const gridHelper = new THREE.GridHelper(200, 100, 0x00d4ff, 0x00d4ff);
       (gridHelper.material as THREE.Material).transparent = true;
@@ -1034,30 +1152,11 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         const delta = Math.min(clock.getDelta(), 0.05);
         const elapsed = clock.getElapsedTime();
 
-        // ISS — slow orbit using real inclination, ~92 min period scaled to scene time
-        // Much slower: full orbit in ~60s scene time
-        const issAngle = elapsed * 0.1; // very slow, visible orbit
-        const issOrbitR = EARTH_RADIUS + 0.5;
-        const issX = Math.cos(issAngle) * issOrbitR;
-        const issZ = Math.sin(issAngle) * issOrbitR;
-        const incRad = (ISS_INCLINATION * Math.PI) / 180;
-        issMesh.position.set(
-          EARTH_POS.x + issX,
-          EARTH_POS.y + issZ * Math.sin(incRad),
-          EARTH_POS.z + issZ * Math.cos(incRad),
-        );
-        issMesh.rotation.y += delta * 0.5;
+        // ISS — subtle eastward drift from real lat/lon (no spinning)
+        issMesh.position.x += delta * 0.001;
+        issMesh.position.z += delta * 0.0005;
 
-        // Moon orbit — slow, tilted
-        const moonAngle = elapsed * (2 * Math.PI) / (MOON_ORBITAL_PERIOD / 365.25 * YEAR_SCENE_SECONDS);
-        const moonIncRad = (MOON_INCLINATION * Math.PI) / 180;
-        const moonX = Math.cos(moonAngle) * MOON_DIST;
-        const moonZ = Math.sin(moonAngle) * MOON_DIST;
-        moonMesh.position.set(
-          EARTH_POS.x + moonX,
-          EARTH_POS.y + moonZ * Math.sin(moonIncRad),
-          EARTH_POS.z + moonZ * Math.cos(moonIncRad),
-        );
+        // Moon — static J2000 position (moves ~13°/day, barely visible in real-time)
         moonMesh.rotation.y += delta * 0.02;
 
         // Earth rotation
