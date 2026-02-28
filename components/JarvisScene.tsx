@@ -339,19 +339,19 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         scene.add(lbl);
       });
 
-      // ===== DSN STATIONS on Earth surface =====
+      // ===== DSN STATIONS on Earth surface (children of earthCore so they rotate) =====
       DSN_GROUND_STATIONS.forEach((station) => {
         if (!station.lat || !station.lon) return;
-        const pos = latLonToSphere(station.lat, station.lon, EARTH_RADIUS * 1.02, EARTH_POS);
+        const pos = latLonToSphere(station.lat, station.lon, EARTH_RADIUS * 1.02, new THREE.Vector3(0, 0, 0));
         const dotGeo = new THREE.SphereGeometry(0.06, 8, 8);
         const dotMat = new THREE.MeshBasicMaterial({ color: 0x34d399 });
         const dot = new THREE.Mesh(dotGeo, dotMat);
         dot.position.copy(pos);
-        scene.add(dot);
+        earthCore.add(dot);
         objectMap.set(station.id, dot);
         const lbl = createLabel(station.name, "#34D399", 1);
         lbl.position.copy(pos).add(new THREE.Vector3(0, 0.3, 0));
-        scene.add(lbl);
+        earthCore.add(lbl);
       });
 
       // ===== ISS =====

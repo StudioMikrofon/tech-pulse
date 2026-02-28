@@ -44,11 +44,11 @@ const TABS: { key: SidebarTab; label: string; icon: typeof Satellite }[] = [
   { key: "radiojove", label: "JOVE", icon: Waves },
 ];
 
-// JOVE audio samples (NASA public domain)
+// JOVE audio samples (NASA public domain / educational archives)
 const JOVE_AUDIO_SAMPLES = [
-  { id: "jupiter-s-burst", label: "Jupiter S-Burst", src: "https://radiojove.gsfc.nasa.gov/library/multimedia/audio/jove_s_burst.mp3", source: "Jupiter" },
-  { id: "jupiter-l-burst", label: "Jupiter L-Burst", src: "https://radiojove.gsfc.nasa.gov/library/multimedia/audio/jove_l_burst.mp3", source: "Jupiter" },
-  { id: "solar-burst", label: "Solar Type III", src: "https://radiojove.gsfc.nasa.gov/library/multimedia/audio/jove_solar.mp3", source: "Sun" },
+  { id: "jupiter-samples", label: "Jupiter Radio Emissions", src: "https://radiojove.gsfc.nasa.gov/library/multimedia/audio/ufsamples.mp3", source: "Jupiter" },
+  { id: "solar-burst-2023", label: "Solar Type II (M9.8)", src: "https://radiojove.gsfc.nasa.gov/library/multimedia/audio/solarNov282023_M9.8flare_2000UT_Ashcraft20.1_20.8MHz.mp3", source: "Sun" },
+  { id: "solar-burst-type3", label: "Solar Type III Burst", src: "https://radiojove.gsfc.nasa.gov/library/multimedia/audio/wcc0921002304utsolarburst.mp3", source: "Sun" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -342,7 +342,7 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
       {/* Content */}
       <div className="relative z-10 flex flex-col sm:flex-row w-full h-full">
         {/* 3D Scene */}
-        <div className="flex-1 relative min-h-[45vh] sm:min-h-0 bg-[#030509]">
+        <div className="flex-1 relative min-h-[45vh] sm:min-h-0 bg-[#030509] min-w-0 overflow-hidden">
           {/* Boot overlay */}
           {booting && <BootOverlay onDone={handleBootDone} />}
 

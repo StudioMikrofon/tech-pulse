@@ -89,6 +89,10 @@ export default function GlobeQuiz({ onFlyTo, onClose }: GlobeQuizProps) {
   const [options, setOptions] = useState<string[]>([]);
   const [correctAnswer, setCorrectAnswer] = useState("");
 
+  // Stable ref for onFlyTo to avoid re-render loops
+  const onFlyToRef = useRef(onFlyTo);
+  onFlyToRef.current = onFlyTo;
+
   const startRound = useCallback((roundIdx: number, questions: Capital[]) => {
     if (roundIdx >= TOTAL_ROUNDS) {
       setGameOver(true);
@@ -96,7 +100,7 @@ export default function GlobeQuiz({ onFlyTo, onClose }: GlobeQuizProps) {
     }
     const q = questions[roundIdx];
     // Fly globe to location
-    onFlyTo?.(q.lat, q.lon);
+    onFlyToRef.current?.(q.lat, q.lon);
 
     // Generate 4 options (1 correct + 3 wrong)
     const wrong = shuffle(CAPITALS.filter(c => c.name !== q.name)).slice(0, 3);
@@ -104,13 +108,14 @@ export default function GlobeQuiz({ onFlyTo, onClose }: GlobeQuizProps) {
     setOptions(opts);
     setCorrectAnswer(`${q.name}, ${q.country}`);
     setAnswered(null);
-  }, [onFlyTo]);
+  }, []);
 
   useEffect(() => {
     const questions = shuffle(CAPITALS).slice(0, TOTAL_ROUNDS);
     questionsRef.current = questions;
     startRound(0, questions);
-  }, [startRound]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleAnswer = (opt: string) => {
     if (answered !== null) return;
