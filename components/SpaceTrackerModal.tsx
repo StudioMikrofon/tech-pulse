@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+
 import {
   X, Satellite, Radio, Zap, Activity, MapPin,
   Rocket, Waves, ChevronRight, Play, Pause, Volume2,
@@ -109,22 +110,59 @@ function AsteroidDistanceBar({ asteroid }: { asteroid: AsteroidDetail }) {
 }
 
 function JarvisTerminalHUD({ obj, onClose }: { obj: { type: string; name: string; data: Record<string, string> }; onClose: () => void }) {
-  const [visibleKeys, setVisibleKeys] = useState<string[]>([]);
-  const entries = Object.entries(obj.data);
+  const [displayedText, setDisplayedText] = useState("");
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  // Build the full text block to type out
+  const fullText = useMemo(() => {
+    const lines: string[] = [];
+    lines.push(`${obj.type} // ${obj.name}`);
+    lines.push("─".repeat(28));
+    for (const [key, val] of Object.entries(obj.data)) {
+      const dots = ".".repeat(Math.max(1, 22 - key.length));
+      lines.push(`${key} ${dots} ${val}`);
+    }
+    return lines.join("\n");
+  }, [obj.type, obj.name, obj.data]);
+
+  // Tiny click sound per character
+  const playTypeTick = useCallback(() => {
+    try {
+      if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
+      const ctx = audioCtxRef.current;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 800 + Math.random() * 400;
+      osc.type = "square";
+      gain.gain.value = 0.015;
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.03);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.03);
+    } catch { /* audio not available */ }
+  }, []);
 
   useEffect(() => {
-    setVisibleKeys([]);
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    entries.forEach(([key], i) => {
-      timers.push(setTimeout(() => {
-        setVisibleKeys((prev) => [...prev, key]);
-      }, 60 * (i + 1)));
-    });
-    return () => timers.forEach(clearTimeout);
-  }, [obj.name]);
+    setDisplayedText("");
+    let charIdx = 0;
+    const speed = 18; // ms per character
+    const timer = setInterval(() => {
+      if (charIdx < fullText.length) {
+        setDisplayedText(fullText.slice(0, charIdx + 1));
+        // Play tick for visible characters only
+        const ch = fullText[charIdx];
+        if (ch !== " " && ch !== "\n" && ch !== "─") playTypeTick();
+        charIdx++;
+      } else {
+        clearInterval(timer);
+      }
+    }, speed);
+    return () => clearInterval(timer);
+  }, [fullText, playTypeTick]);
 
   return (
-    <div className="font-mono text-[11px] select-none max-w-72">
+    <div className="font-mono text-[11px] select-none max-w-80">
       {/* Scanline top bar */}
       <div className="flex items-center gap-2 mb-1.5">
         <div className="flex-1 h-px bg-gradient-to-r from-cyan-400/80 via-cyan-400/30 to-transparent animate-pulse" />
@@ -137,29 +175,27 @@ function JarvisTerminalHUD({ obj, onClose }: { obj: { type: string; name: string
         </button>
       </div>
 
-      {/* Header */}
-      <div className="flex items-center gap-1.5 mb-1">
-        <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-        <span className="text-cyan-400 uppercase tracking-wider truncate">
-          {obj.type} // {obj.name}
-        </span>
-      </div>
-
-      {/* Separator */}
-      <div className="h-px bg-cyan-400/20 mb-1" />
-
-      {/* Data rows — typewriter reveal */}
-      {entries.map(([key, val]) => (
-        <div
-          key={key}
-          className={`flex justify-between py-[2px] gap-2 transition-opacity duration-200 ${
-            visibleKeys.includes(key) ? "opacity-100" : "opacity-0"
-          }`}
-        >
-          <span className="text-cyan-400/60 shrink-0">{key}</span>
-          <span className="text-green-400/90 text-right truncate">{val}</span>
-        </div>
-      ))}
+      {/* Terminal text — character by character */}
+      <pre className="whitespace-pre-wrap leading-relaxed">
+        {displayedText.split("\n").map((line, i) => (
+          <div key={i}>
+            {i === 0 ? (
+              <span className="text-cyan-400 uppercase tracking-wider">{line}</span>
+            ) : i === 1 ? (
+              <span className="text-cyan-400/20">{line}</span>
+            ) : (
+              <>
+                <span className="text-cyan-400/60">{line.split(/(?<=\.{2,}\s)/)[0]}</span>
+                <span className="text-green-400/90">{line.split(/(?<=\.{2,}\s)/).slice(1).join("")}</span>
+              </>
+            )}
+          </div>
+        ))}
+        {/* Blinking cursor */}
+        {displayedText.length < fullText.length && (
+          <span className="text-cyan-400 animate-pulse">▌</span>
+        )}
+      </pre>
 
       {/* Bottom scanline */}
       <div className="h-px bg-gradient-to-r from-transparent via-cyan-400/20 to-transparent mt-1.5" />
@@ -723,7 +759,7 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
                 {/* JOVE Audio Player — recorded samples */}
                 <JoveAudioPlayer />
 
-                {/* JOVE Live Stream */}
+                {/* JOVE Live Stream — link (embedding disabled by channel) */}
                 <div className="glass-card p-3 space-y-2 !hover:transform-none border-red-500/20">
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
@@ -734,15 +770,21 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
                     SDRplay prijemnik na 16-24 MHz — prikazuje radio emisije Jupitera, Sunca i galaktičke pozadine u realnom vremenu.
                     Spektrogram prikazuje frekvenciju (y-os) vs. vrijeme (x-os), a boje označavaju intenzitet signala.
                   </p>
-                  <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-white/10">
-                    <iframe
-                      src="https://www.youtube.com/embed/wjYIvyCkj-4?autoplay=0&modestbranding=1&rel=0"
-                      title="Radio JOVE Live Stream — 20.1 MHz"
-                      className="absolute inset-0 w-full h-full"
-                      allow="autoplay; encrypted-media"
-                      allowFullScreen
-                    />
-                  </div>
+                  <a
+                    href="https://www.youtube.com/watch?v=wjYIvyCkj-4"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 transition-colors cursor-pointer"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
+                      <Play className="w-4 h-4 text-red-400" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-[11px] font-mono font-bold text-red-400">Otvori Live Stream na YouTube</p>
+                      <p className="text-[9px] font-mono text-text-secondary">K4LED Observatory — 24/7 spectrogram + audio</p>
+                    </div>
+                    <ChevronRight className="w-3 h-3 text-red-400/50" />
+                  </a>
                   <p className="text-[8px] font-mono text-text-secondary/40 text-center">
                     NASA Radio JOVE Citizen Science — radiojove.gsfc.nasa.gov
                   </p>
