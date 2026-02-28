@@ -46,9 +46,9 @@ const TABS: { key: SidebarTab; label: string; icon: typeof Satellite }[] = [
 
 // JOVE audio samples (NASA public domain / educational archives)
 const JOVE_AUDIO_SAMPLES = [
-  { id: "jupiter-samples", label: "Jupiter Radio Emissions", src: "https://radiojove.gsfc.nasa.gov/library/multimedia/audio/ufsamples.mp3", source: "Jupiter" },
-  { id: "solar-burst-2023", label: "Solar Type II (M9.8)", src: "https://radiojove.gsfc.nasa.gov/library/multimedia/audio/solarNov282023_M9.8flare_2000UT_Ashcraft20.1_20.8MHz.mp3", source: "Sun" },
-  { id: "solar-burst-type3", label: "Solar Type III Burst", src: "https://radiojove.gsfc.nasa.gov/library/multimedia/audio/wcc0921002304utsolarburst.mp3", source: "Sun" },
+  { id: "jupiter-samples", label: "Jupiter Radio Emissions", src: "/audio/jove/jupiter-emissions.mp3", source: "Jupiter" },
+  { id: "solar-burst-2023", label: "Solar Type II (M9.8)", src: "/audio/jove/solar-type2-burst.mp3", source: "Sun" },
+  { id: "solar-burst-type3", label: "Solar Type III Burst", src: "/audio/jove/solar-type3-burst.mp3", source: "Sun" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -108,23 +108,61 @@ function AsteroidDistanceBar({ asteroid }: { asteroid: AsteroidDetail }) {
   );
 }
 
-function BlueprintHUD({ obj }: { obj: { type: string; name: string; data: Record<string, string> } }) {
+function JarvisTerminalHUD({ obj, onClose }: { obj: { type: string; name: string; data: Record<string, string> }; onClose: () => void }) {
+  const [visibleKeys, setVisibleKeys] = useState<string[]>([]);
+  const entries = Object.entries(obj.data);
+
+  useEffect(() => {
+    setVisibleKeys([]);
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    entries.forEach(([key], i) => {
+      timers.push(setTimeout(() => {
+        setVisibleKeys((prev) => [...prev, key]);
+      }, 60 * (i + 1)));
+    });
+    return () => timers.forEach(clearTimeout);
+  }, [obj.name]);
+
   return (
-    <div className="glass-card p-3 space-y-1.5 !hover:transform-none border-cyan-500/30">
-      <div className="flex items-center gap-2">
-        <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-        <h4 className="text-[11px] font-mono text-cyan-400 uppercase tracking-wider truncate">
+    <div className="font-mono text-[11px] select-none max-w-72">
+      {/* Scanline top bar */}
+      <div className="flex items-center gap-2 mb-1.5">
+        <div className="flex-1 h-px bg-gradient-to-r from-cyan-400/80 via-cyan-400/30 to-transparent animate-pulse" />
+        <button
+          onClick={onClose}
+          className="text-cyan-400/50 hover:text-cyan-400 transition-colors cursor-pointer text-[10px] leading-none"
+          aria-label="Zatvori HUD"
+        >
+          [X]
+        </button>
+      </div>
+
+      {/* Header */}
+      <div className="flex items-center gap-1.5 mb-1">
+        <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+        <span className="text-cyan-400 uppercase tracking-wider truncate">
           {obj.type} // {obj.name}
-        </h4>
+        </span>
       </div>
-      <div className="border-t border-cyan-500/15 pt-1.5">
-        {Object.entries(obj.data).map(([key, val]) => (
-          <div key={key} className="flex justify-between text-[11px] py-0.5 gap-2">
-            <span className="text-text-secondary font-mono shrink-0">{key}</span>
-            <span className="font-mono font-bold text-text-primary text-right truncate">{val}</span>
-          </div>
-        ))}
-      </div>
+
+      {/* Separator */}
+      <div className="h-px bg-cyan-400/20 mb-1" />
+
+      {/* Data rows — typewriter reveal */}
+      {entries.map(([key, val]) => (
+        <div
+          key={key}
+          className={`flex justify-between py-[2px] gap-2 transition-opacity duration-200 ${
+            visibleKeys.includes(key) ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          <span className="text-cyan-400/60 shrink-0">{key}</span>
+          <span className="text-green-400/90 text-right truncate">{val}</span>
+        </div>
+      ))}
+
+      {/* Bottom scanline */}
+      <div className="h-px bg-gradient-to-r from-transparent via-cyan-400/20 to-transparent mt-1.5" />
     </div>
   );
 }
@@ -165,7 +203,6 @@ function JoveAudioPlayer() {
       audioRef.current.pause();
     }
     const audio = new Audio(sample.src);
-    audio.crossOrigin = "anonymous";
     audioRef.current = audio;
     audio.play().then(() => {
       setPlayingId(sample.id);
@@ -361,10 +398,10 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
             <p className="text-[10px] font-mono text-cyan-400/50">// Jarvis Blueprint Mode</p>
           </div>
 
-          {/* HUD overlay */}
+          {/* HUD overlay — Jarvis terminal style */}
           {hudObj && hudObj.name && (
-            <div className="absolute bottom-4 left-4 z-10 w-64">
-              <BlueprintHUD obj={hudObj} />
+            <div className="absolute bottom-4 left-4 z-10">
+              <JarvisTerminalHUD obj={hudObj} onClose={() => setHudObj(null)} />
             </div>
           )}
 
@@ -570,21 +607,18 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
                 </div>
 
                 <div className="glass-card p-3 space-y-2 !hover:transform-none border-cyan-500/20">
-                  <h4 className="text-[11px] font-mono text-purple-400/70 mb-1">AKTIVNE SONDE</h4>
-                  {data.deepSpace.activeLinks.map((link) => (
+                  <h4 className="text-[11px] font-mono text-purple-400/70 mb-1">SONDE U SUSTAVU</h4>
+                  {PROBES_DATASET.entries.map((probe) => (
                     <button
-                      key={link.name}
-                      onClick={() => {
-                        const probe = PROBES_DATASET.entries.find((p) => p.name === link.name);
-                        if (probe) handleSidebarItemClick({ type: "probe", id: probe.id });
-                      }}
+                      key={probe.id}
+                      onClick={() => handleSidebarItemClick({ type: "probe", id: probe.id })}
                       className="w-full flex items-center justify-between text-[11px] p-1.5 rounded hover:bg-white/5 transition-colors cursor-pointer"
                     >
                       <div className="flex items-center gap-2">
-                        <span className={`w-1.5 h-1.5 rounded-full ${link.status === "active" ? "bg-green-400 animate-pulse" : "bg-gray-500"}`} />
-                        <span className="font-mono text-text-primary">{link.name}</span>
+                        <span className={`w-1.5 h-1.5 rounded-full ${probe.status === "active" ? "bg-green-400 animate-pulse" : "bg-gray-500"}`} />
+                        <span className="font-mono text-text-primary">{probe.name}</span>
                       </div>
-                      <span className="text-text-secondary font-mono text-[10px]">{link.distance}</span>
+                      <span className="text-text-secondary font-mono text-[10px]">{probe.distanceFromSun}</span>
                     </button>
                   ))}
                 </div>
