@@ -720,8 +720,33 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
                   ))}
                 </div>
 
-                {/* JOVE Audio Player */}
+                {/* JOVE Audio Player — recorded samples */}
                 <JoveAudioPlayer />
+
+                {/* JOVE Live Stream */}
+                <div className="glass-card p-3 space-y-2 !hover:transform-none border-red-500/20">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                    <h4 className="text-[11px] font-mono text-red-400">LIVE STREAM — 20.1 MHz</h4>
+                  </div>
+                  <p className="text-[10px] text-text-secondary leading-relaxed">
+                    Radio JOVE 24/7 live spectrograf i audio s K4LED opservatorija (Georgia, SAD).
+                    SDRplay prijemnik na 16-24 MHz — prikazuje radio emisije Jupitera, Sunca i galaktičke pozadine u realnom vremenu.
+                    Spektrogram prikazuje frekvenciju (y-os) vs. vrijeme (x-os), a boje označavaju intenzitet signala.
+                  </p>
+                  <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-white/10">
+                    <iframe
+                      src="https://www.youtube.com/embed/wjYIvyCkj-4?autoplay=0&modestbranding=1&rel=0"
+                      title="Radio JOVE Live Stream — 20.1 MHz"
+                      className="absolute inset-0 w-full h-full"
+                      allow="autoplay; encrypted-media"
+                      allowFullScreen
+                    />
+                  </div>
+                  <p className="text-[8px] font-mono text-text-secondary/40 text-center">
+                    NASA Radio JOVE Citizen Science — radiojove.gsfc.nasa.gov
+                  </p>
+                </div>
 
                 <div className="text-[9px] font-mono text-text-secondary/40 text-center">
                   radiojove.gsfc.nasa.gov — 20.1 MHz spectrogram data
