@@ -24,6 +24,7 @@ export default function HeroSection({
   const globeRef = useRef<GlobeHandle>(null);
   const [globeSize, setGlobeSize] = useState(600);
   const [quizMode, setQuizMode] = useState(false);
+  const [quizPin, setQuizPin] = useState<{ lat: number; lng: number; label: string; color: string; id: string }[]>([]);
 
   useEffect(() => {
     function updateSize() {
@@ -40,11 +41,11 @@ export default function HeroSection({
   return (
     <section className="relative overflow-hidden" ref={globeContainerRef}>
       {/* Globe as decorative background — centered behind featured article */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-50">
+      <div className={`absolute inset-0 flex items-center justify-center ${quizMode ? 'opacity-80' : 'opacity-50 pointer-events-none'}`}>
         <div className="globe-glow">
           <Globe
             ref={globeRef}
-            pins={[]}
+            pins={quizPin}
             width={globeSize}
             height={typeof window !== "undefined" && window.innerWidth < 768 ? 420 : globeSize}
             autoRotate={true}
@@ -101,7 +102,9 @@ export default function HeroSection({
           <button
             onClick={() => {
               playSound("click");
-              setQuizMode(!quizMode);
+              const next = !quizMode;
+              setQuizMode(next);
+              if (!next) setQuizPin([]);
             }}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent-cyan/10 border border-accent-cyan/30 text-accent-cyan text-sm font-mono hover:bg-accent-cyan/20 transition-colors cursor-pointer hacker-glow"
           >
@@ -113,9 +116,10 @@ export default function HeroSection({
           <div className="mb-8">
             <GlobeQuiz
               onFlyTo={(lat, lon) => {
+                setQuizPin([{ lat, lng: lon, label: "?", color: "#00D4FF", id: "quiz" }]);
                 globeRef.current?.focusOn({ lat, lon, name: "", countryCode: "" });
               }}
-              onClose={() => setQuizMode(false)}
+              onClose={() => { setQuizMode(false); setQuizPin([]); }}
             />
           </div>
         )}

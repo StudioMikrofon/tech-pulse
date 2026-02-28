@@ -253,7 +253,9 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       controls.target.copy(EARTH_POS);
 
       // Lighting
-      scene.add(new THREE.AmbientLight(0x334466, 1.2));
+      scene.add(new THREE.AmbientLight(0x889aab, 2.5));
+      const hemiLight = new THREE.HemisphereLight(0xffffff, 0x222244, 0.8);
+      scene.add(hemiLight);
       const sunLight = new THREE.PointLight(0xffffff, 2, 300);
       sunLight.position.copy(SUN_POS);
       scene.add(sunLight);
@@ -291,18 +293,16 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
           map: earthDayTex,
           bumpMap: earthBumpTex,
           bumpScale: 0.03,
-          roughness: 0.7,
+          roughness: 0.45,
           metalness: 0.1,
+          emissive: new THREE.Color(0x112244),
+          emissiveIntensity: 0.15,
         }),
       );
       earthCore.position.copy(EARTH_POS);
       scene.add(earthCore);
 
-      // Subtle cyan wireframe overlay for Jarvis feel
-      const earthWire = createWireframeSphere(EARTH_RADIUS * 1.005, 0x00d4ff, 0.08, 36);
-      earthWire.position.copy(EARTH_POS);
-      scene.add(earthWire);
-      objectMap.set("earth", earthWire);
+      objectMap.set("earth", earthCore);
 
       // Atmosphere glow
       const atmosGeo = new THREE.SphereGeometry(EARTH_RADIUS * 1.08, 32, 32);
@@ -318,7 +318,7 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       scanCanvas.height = 256;
       const scanCtx = scanCanvas.getContext("2d")!;
       const scanTex = new THREE.CanvasTexture(scanCanvas);
-      const scanMat = new THREE.MeshBasicMaterial({ map: scanTex, transparent: true, opacity: 0.3, depthWrite: false });
+      const scanMat = new THREE.MeshBasicMaterial({ map: scanTex, transparent: true, opacity: 0.12, depthWrite: false });
       const scanBand = new THREE.Mesh(scanGeo, scanMat);
       scanBand.position.copy(EARTH_POS);
       scene.add(scanBand);
@@ -450,26 +450,28 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         const trail = new THREE.Points(trailGeo, trailMat);
         scene.add(trail);
 
-        // Trajectory line
+        // Flyby trajectory arc — hyperbolic curve around Earth
         const trajPts: THREE.Vector3[] = [];
+        const periapsis = scaledDist; // closest approach = current distance
+        const deflection = 0.4 + Math.random() * 0.5; // curvature varies per asteroid
+        const incomingAngle = angle + Math.PI; // approach from opposite side
         for (let i = 0; i <= 60; i++) {
-          const t = (i / 60 - 0.5) * 2;
-          const d = scaledDist + t * scaledDist * 0.6;
-          const ta = angle + t * 0.08;
+          const t = (i / 60 - 0.5) * 2; // -1 to +1
+          const curveAngle = incomingAngle + t * (0.8 + deflection);
+          // Distance grows away from periapsis on both sides
+          const d = periapsis + Math.abs(t) * periapsis * 1.2;
           trajPts.push(new THREE.Vector3(
-            EARTH_POS.x + Math.cos(ta) * d,
-            EARTH_POS.y + Math.sin(t * Math.PI * 0.2) * 0.3,
-            EARTH_POS.z + Math.sin(ta) * d,
+            EARTH_POS.x + Math.cos(curveAngle) * d,
+            EARTH_POS.y + Math.sin(t * Math.PI * 0.15) * 0.4,
+            EARTH_POS.z + Math.sin(curveAngle) * d,
           ));
         }
         const trajGeo = new THREE.BufferGeometry().setFromPoints(trajPts);
-        const trajLine = new THREE.Line(
-          trajGeo,
-          new THREE.LineDashedMaterial({
-            color: asteroid.hazardous ? 0xef4444 : 0xffcf6e,
-            transparent: true, opacity: 0.2, dashSize: 0.3, gapSize: 0.2,
-          }),
-        );
+        const trajMat = new THREE.LineDashedMaterial({
+          color: asteroid.hazardous ? 0xef4444 : 0xffcf6e,
+          transparent: true, opacity: 0.3, dashSize: 0.3, gapSize: 0.2,
+        });
+        const trajLine = new THREE.Line(trajGeo, trajMat);
         trajLine.computeLineDistances();
         scene.add(trajLine);
 
@@ -572,13 +574,6 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         pMesh.rotation.z = (p.tilt * Math.PI) / 180;
         scene.add(pMesh);
         objectMap.set(`planet-${p.name.toLowerCase()}`, pMesh);
-
-        // Wireframe overlay for Jarvis feel
-        const wireOverlay = new THREE.Mesh(
-          new THREE.SphereGeometry(p.radius * 1.05, 32, 32),
-          new THREE.MeshBasicMaterial({ color: new THREE.Color(p.color), wireframe: true, transparent: true, opacity: 0.2 }),
-        );
-        pMesh.add(wireOverlay);
 
         // Saturn: gradient rings with Cassini gap
         if (p.ring) {
@@ -884,7 +879,6 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         issMesh.rotation.y += delta * 2;
 
         // Rotate Earth
-        earthWire.rotation.y += delta * 0.05;
         earthCore.rotation.y += delta * 0.05;
         scanBand.rotation.y += delta * 0.05;
 
