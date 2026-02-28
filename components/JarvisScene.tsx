@@ -239,10 +239,14 @@ function generatePlanetTexture(name: string, w = 512, h = 256): HTMLCanvasElemen
     bg.addColorStop(0, "#fff8e0"); bg.addColorStop(0.3, "#ffcc44"); bg.addColorStop(0.6, "#ff9900"); bg.addColorStop(1, "#ff6600");
     ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
 
-    // Granulation (convection cells)
+    // Granulation (convection cells) — spherical coords for seamless tiling
     for (let y = 0; y < h; y += 3) for (let x = 0; x < w; x += 3) {
-      const nx = x / w * 20, ny = y / h * 10;
-      const v = Math.sin(nx * 2.1 + ny * 1.7) * Math.cos(nx * 1.3 - ny * 2.4) * Math.sin(nx * 0.8 + ny * 3.1);
+      const theta = (x / w) * Math.PI * 2;
+      const phi = (y / h) * Math.PI;
+      const sx = Math.sin(phi) * Math.cos(theta);
+      const sy = Math.sin(phi) * Math.sin(theta);
+      const sz = Math.cos(phi);
+      const v = Math.sin(sx * 8 + sy * 6) * Math.cos(sz * 7 + sx * 5) * Math.sin(sy * 9 + sz * 4);
       const r = 230 + v * 25;
       const g = 160 + v * 40;
       const b = 40 + v * 25;
@@ -551,11 +555,6 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         if (!internals.current) return;
         const { objectMap, asteroidAnims } = internals.current;
 
-        // Hide all trajectories when changing focus
-        for (const aa of asteroidAnims) {
-          aa.trajLine.visible = false;
-        }
-
         if (target.type === "reset" || target.type === "earth") {
           internals.current.flyLook = EARTH_POS.clone();
           internals.current.flyTarget = new THREE.Vector3(0, 3, 8);
@@ -573,10 +572,6 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
 
           const objData = getObjectData(key, issDataRef.current);
           if (objData) onSelectObject?.(objData);
-
-          // Show trajectory if asteroid
-          const astAnim = asteroidAnims.find(a => a.id === key);
-          if (astAnim) astAnim.trajLine.visible = true;
 
           const { flyTarget, flyLook, dist } = computeFlyTo(key, objData?.type || "object", pos);
           internals.current.flyTarget = flyTarget;
@@ -623,19 +618,19 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       controls.rotateSpeed = 1.5;
       controls.target.copy(EARTH_POS);
 
-      // Lighting — balanced for day/night effect
-      scene.add(new THREE.AmbientLight(0x889aab, 0.6));
-      scene.add(new THREE.HemisphereLight(0xffffff, 0x222244, 0.5));
+      // Lighting — low ambient so day/night contrast is visible
+      scene.add(new THREE.AmbientLight(0x889aab, 0.12));
+      scene.add(new THREE.HemisphereLight(0xffffff, 0x222244, 0.08));
       const sunLight = new THREE.PointLight(0xffffff, 3, 300);
       sunLight.position.copy(SUN_POS);
       scene.add(sunLight);
-      // Directional light toward Earth for proper day/night
-      const dirLight = new THREE.DirectionalLight(0xfff8e0, 1.5);
+      // Strong directional light toward Earth for clear day/night
+      const dirLight = new THREE.DirectionalLight(0xfff8e0, 2.5);
       dirLight.position.copy(SUN_POS);
       dirLight.target.position.copy(EARTH_POS);
       scene.add(dirLight);
       scene.add(dirLight.target);
-      const fillLight = new THREE.PointLight(0x0066ff, 0.3, 100);
+      const fillLight = new THREE.PointLight(0x0066ff, 0.15, 100);
       fillLight.position.set(30, 10, 20);
       scene.add(fillLight);
 
@@ -761,6 +756,7 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
 
       // ===== MOON — real-time J2000 position =====
       const moonTex = texLoader.load("/textures/moon.jpg");
+      moonTex.wrapS = THREE.RepeatWrapping;
       const moonMesh = new THREE.Mesh(
         new THREE.SphereGeometry(MOON_RADIUS, 32, 32),
         new THREE.MeshStandardMaterial({
@@ -840,14 +836,13 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         }));
         scene.add(trail);
 
-        // Flyby trajectory — HIDDEN by default, cyan dashed
+        // Flyby trajectory — visible, cyan dashed, centered on asteroid
         const trajPts: THREE.Vector3[] = [];
         const periapsis = scaledDist;
         const deflection = 0.4 + Math.random() * 0.5;
-        const incomingAngle = angle + Math.PI;
         for (let i = 0; i <= 80; i++) {
           const t = (i / 80 - 0.5) * 2;
-          const curveAngle = incomingAngle + t * (0.8 + deflection);
+          const curveAngle = angle + t * (0.8 + deflection);
           const d = periapsis + Math.abs(t) * periapsis * 1.2;
           trajPts.push(new THREE.Vector3(
             EARTH_POS.x + Math.cos(curveAngle) * d,
@@ -860,7 +855,7 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
           new THREE.LineDashedMaterial({ color: 0x00d4ff, transparent: true, opacity: 0.5, dashSize: 0.3, gapSize: 0.15 }),
         );
         trajLine.computeLineDistances();
-        trajLine.visible = false; // hidden by default
+        trajLine.visible = true;
         scene.add(trajLine);
 
         // Ghost mesh for flyby simulation (hidden by default)
@@ -903,10 +898,11 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       const sunGeo = new THREE.SphereGeometry(3, 48, 48);
       const sunFallback = generatePlanetTexture("sun", 1024, 512);
       const sunFallbackTex = new THREE.CanvasTexture(sunFallback);
+      sunFallbackTex.wrapS = THREE.RepeatWrapping;
       const sunMat = new THREE.MeshBasicMaterial({
         map: sunFallbackTex,
       });
-      texLoader.load("/textures/sun.jpg", (tex) => { sunMat.map = tex; sunMat.needsUpdate = true; });
+      texLoader.load("/textures/sun.jpg", (tex) => { tex.wrapS = THREE.RepeatWrapping; sunMat.map = tex; sunMat.needsUpdate = true; });
       const sunMesh = new THREE.Mesh(sunGeo, sunMat);
       sunMesh.position.copy(SUN_POS);
       scene.add(sunMesh);
@@ -1170,11 +1166,6 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
             if (objData) {
               onSelectObject?.(objData);
 
-              // Hide all trajectories, show only selected asteroid's
-              for (const aa of asteroidAnims) aa.trajLine.visible = false;
-              const astAnim = asteroidAnims.find(a => a.id === id);
-              if (astAnim) astAnim.trajLine.visible = true;
-
               const pos = new THREE.Vector3();
               objectMap.get(id)!.getWorldPosition(pos);
               const { flyTarget, flyLook, dist } = computeFlyTo(id, objData.type, pos);
@@ -1198,6 +1189,9 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       renderer.domElement.addEventListener("wheel", () => { idleTime = 0; });
 
       const trailHistory: THREE.Vector3[][] = asteroidAnims.map(() => []);
+      let issAngle = 0;
+      const issIncRad = (ISS_INCLINATION * Math.PI) / 180;
+      const issOrbitR = EARTH_RADIUS + 0.5;
 
       function animate() {
         animId = requestAnimationFrame(animate);
@@ -1206,15 +1200,22 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         const delta = Math.min(clock.getDelta(), 0.05);
         const elapsed = clock.getElapsedTime();
 
-        // ISS — static at real position (no drift, no spinning)
-        // Position is fixed from init, no updates needed
+        // ISS — slow inclined orbit (visually perceptible but not frantic)
+        issAngle += delta * 0.008;
+        const ix = Math.cos(issAngle) * issOrbitR;
+        const iz = Math.sin(issAngle) * issOrbitR;
+        issMesh.position.set(
+          EARTH_POS.x + ix,
+          EARTH_POS.y + iz * Math.sin(issIncRad),
+          EARTH_POS.z + iz * Math.cos(issIncRad),
+        );
 
         // Moon — static J2000 position, slow tidally-locked rotation
         moonMesh.rotation.y += delta * 0.02;
 
-        // Earth rotation
-        earthCore.rotation.y += delta * 0.05;
-        scanBand.rotation.y += delta * 0.05;
+        // Earth rotation — slow so ISS doesn't appear to race
+        earthCore.rotation.y += delta * 0.005;
+        scanBand.rotation.y += delta * 0.005;
 
         // Scan band texture
         scanCtx.clearRect(0, 0, 512, 256);
