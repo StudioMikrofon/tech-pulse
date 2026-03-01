@@ -47,24 +47,6 @@ interface DataParticle {
   radius: number;
 }
 
-interface Satellite {
-  x: number;
-  y: number;
-  angle: number;
-  speed: number;
-  alpha: number;
-  size: number;
-  panelAngle: number;
-}
-
-interface Spacecraft {
-  x: number;
-  y: number;
-  angle: number;
-  speed: number;
-  alpha: number;
-  size: number;
-}
 
 interface Supernova {
   x: number;
@@ -110,7 +92,7 @@ interface NebulaPulse {
 
 // Overlay objects (z-20 canvas)
 interface OverlayObject {
-  type: "satellite" | "asteroid" | "comet" | "debris";
+  type: "asteroid" | "comet";
   x: number;
   y: number;
   angle: number;
@@ -393,43 +375,6 @@ export default function SpaceStage() {
     let nebulaPulses = createNebulaPulses();
 
     // -----------------------------------------------------------------------
-    // Satellites
-    // -----------------------------------------------------------------------
-    let satellites: Satellite[] = [];
-    let nextSatelliteTime = elapsedMs + randRange(6000, 14000) * (isMobile() ? 1.5 : 1);
-
-    function spawnSatellite() {
-      const fromLeft = Math.random() > 0.5;
-      satellites.push({
-        x: fromLeft ? -20 : width + 20,
-        y: randRange(height * 0.05, height * 0.6),
-        angle: fromLeft ? randRange(-0.15, 0.15) : randRange(Math.PI - 0.15, Math.PI + 0.15),
-        speed: randRange(0.8, 1.5),
-        alpha: randRange(0.3, 0.5),
-        size: randRange(3, 5),
-        panelAngle: 0,
-      });
-    }
-
-    // -----------------------------------------------------------------------
-    // Spacecraft
-    // -----------------------------------------------------------------------
-    let spacecraft: Spacecraft[] = [];
-    let nextSpacecraftTime = elapsedMs + randRange(15000, 35000) * (isMobile() ? 1.5 : 1);
-
-    function spawnSpacecraft() {
-      const fromLeft = Math.random() > 0.5;
-      spacecraft.push({
-        x: fromLeft ? -15 : width + 15,
-        y: randRange(height * 0.1, height * 0.5),
-        angle: fromLeft ? randRange(-0.1, 0.2) : randRange(Math.PI - 0.2, Math.PI + 0.1),
-        speed: randRange(1.2, 2.0),
-        alpha: randRange(0.3, 0.5),
-        size: randRange(4, 7),
-      });
-    }
-
-    // -----------------------------------------------------------------------
     // Supernovas
     // -----------------------------------------------------------------------
     let supernovas: Supernova[] = [];
@@ -475,7 +420,7 @@ export default function SpaceStage() {
     // Comets
     // -----------------------------------------------------------------------
     let comets: Comet[] = [];
-    let nextCometTime = elapsedMs + randRange(40000, 80000) * (isMobile() ? 1.5 : 1);
+    let nextCometTime = elapsedMs + randRange(60000, 120000) * (isMobile() ? 1.5 : 1);
 
     function spawnComet() {
       comets.push({
@@ -494,10 +439,8 @@ export default function SpaceStage() {
     // Overlay objects (z-20 canvas — rare, flies over content)
     // -----------------------------------------------------------------------
     let overlayObjects: OverlayObject[] = [];
-    let nextOverlaySatTime = randRange(8000, 15000) * (isMobile() ? 1.5 : 1);
     let nextOverlayAstTime = randRange(12000, 25000) * (isMobile() ? 1.5 : 1);
-    let nextOverlayCometTime = randRange(15000, 30000) * (isMobile() ? 1.5 : 1);
-    let nextOverlayDebrisTime = randRange(5000, 10000) * (isMobile() ? 1.5 : 1);
+    let nextOverlayCometTime = randRange(30000, 60000) * (isMobile() ? 1.5 : 1);
 
     function spawnOverlayObject(type: OverlayObject["type"]) {
       const fromLeft = Math.random() > 0.5;
@@ -530,15 +473,6 @@ export default function SpaceStage() {
         base.maxLife = randRange(240, 360);
         base.tailLength = randRange(120, 220);
         base.headRadius = randRange(2.5, 4);
-      } else if (type === "debris") {
-        // Small fast-moving space debris — tiny dots/fragments
-        base.size = randRange(1.5, 3.5);
-        base.speed = randRange(1.5, 3.0);
-        base.alpha = randRange(0.25, 0.5);
-        base.rotation = 0;
-        base.rotSpeed = randRange(-0.05, 0.05);
-        // Slight vertical variation
-        base.angle = fromLeft ? randRange(-0.25, 0.25) : randRange(Math.PI - 0.25, Math.PI + 0.25);
       }
 
       overlayObjects.push(base);
@@ -675,43 +609,6 @@ export default function SpaceStage() {
     // -----------------------------------------------------------------------
     // Draw helpers
     // -----------------------------------------------------------------------
-
-    function drawSatelliteShape(ctx: CanvasRenderingContext2D, sat: { x: number; y: number; alpha: number; size: number }) {
-      ctx.save();
-      ctx.translate(sat.x, sat.y);
-      ctx.globalAlpha = sat.alpha;
-      const s = sat.size;
-      // Main bus — gradient metallic body
-      const bodyGrad = ctx.createLinearGradient(-s / 2, -s / 2, s / 2, s / 2);
-      bodyGrad.addColorStop(0, "#D8D8D8"); bodyGrad.addColorStop(0.5, "#A0A0A0"); bodyGrad.addColorStop(1, "#C8C8C8");
-      ctx.fillStyle = bodyGrad;
-      ctx.fillRect(-s / 2, -s / 2, s, s);
-      // Highlight edge
-      ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.lineWidth = 0.5;
-      ctx.strokeRect(-s / 2, -s / 2, s, s);
-      // Solar panels — blue with cell grid lines
-      const pw = s * 2.0, ph = s * 0.6;
-      const panelGrad = ctx.createLinearGradient(-s / 2 - pw, 0, -s / 2, 0);
-      panelGrad.addColorStop(0, "#1a3a6a"); panelGrad.addColorStop(0.5, "#2a5a9a"); panelGrad.addColorStop(1, "#1a4a8a");
-      ctx.fillStyle = panelGrad;
-      ctx.fillRect(-s / 2 - pw, -ph / 2, pw, ph);
-      ctx.fillRect(s / 2, -ph / 2, pw, ph);
-      // Panel grid lines
-      ctx.strokeStyle = "rgba(100,150,200,0.3)"; ctx.lineWidth = 0.3;
-      for (let px = -s / 2 - pw; px < -s / 2; px += s * 0.4) { ctx.beginPath(); ctx.moveTo(px, -ph / 2); ctx.lineTo(px, ph / 2); ctx.stroke(); }
-      for (let px = s / 2; px < s / 2 + pw; px += s * 0.4) { ctx.beginPath(); ctx.moveTo(px, -ph / 2); ctx.lineTo(px, ph / 2); ctx.stroke(); }
-      // Panel connectors
-      ctx.fillStyle = "#888"; ctx.fillRect(-s / 2 - 1, -1, 2, 2); ctx.fillRect(s / 2 - 1, -1, 2, 2);
-      // Antenna dish
-      ctx.beginPath(); ctx.arc(0, -s / 2 - 2, s * 0.3, Math.PI, 0);
-      ctx.strokeStyle = "#ccc"; ctx.lineWidth = 0.8; ctx.stroke();
-      // Blinking light
-      ctx.beginPath(); ctx.arc(s * 0.3, -s * 0.3, 0.8, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255,50,50,${0.5 + Math.sin(Date.now() * 0.005) * 0.5})`;
-      ctx.fill();
-      ctx.globalAlpha = 1;
-      ctx.restore();
-    }
 
     function drawAsteroidShape(ctx: CanvasRenderingContext2D, a: { x: number; y: number; alpha: number; size: number; rotation?: number; vertices?: number[] }) {
       ctx.save();
@@ -975,64 +872,11 @@ export default function SpaceStage() {
         }
       }
 
-      // === Satellites ========================================================
-      if (!prefersReducedMotion) {
-        if (elapsedMs >= nextSatelliteTime) {
-          spawnSatellite();
-          nextSatelliteTime = elapsedMs + randRange(6000, 14000) * (isMobile() ? 1.5 : 1);
-        }
-
-        for (let i = satellites.length - 1; i >= 0; i--) {
-          const sat = satellites[i];
-          sat.x += Math.cos(sat.angle) * sat.speed * factor;
-          sat.y += Math.sin(sat.angle) * sat.speed * factor;
-          sat.panelAngle += 0.01 * factor;
-
-          drawSatelliteShape(bgCtx!, sat);
-
-          if (sat.x < -60 || sat.x > width + 60 || sat.y < -60 || sat.y > height + 60) {
-            satellites.splice(i, 1);
-          }
-        }
-      }
-
-      // === Spacecraft ========================================================
-      if (!prefersReducedMotion) {
-        if (elapsedMs >= nextSpacecraftTime) {
-          spawnSpacecraft();
-          nextSpacecraftTime = elapsedMs + randRange(15000, 35000) * (isMobile() ? 1.5 : 1);
-        }
-
-        for (let i = spacecraft.length - 1; i >= 0; i--) {
-          const sc = spacecraft[i];
-          sc.x += Math.cos(sc.angle) * sc.speed * factor;
-          sc.y += Math.sin(sc.angle) * sc.speed * factor;
-
-          bgCtx!.save();
-          bgCtx!.translate(sc.x, sc.y);
-          bgCtx!.rotate(sc.angle);
-          bgCtx!.globalAlpha = sc.alpha;
-          bgCtx!.beginPath();
-          bgCtx!.moveTo(sc.size, 0);
-          bgCtx!.lineTo(-sc.size * 0.6, -sc.size * 0.4);
-          bgCtx!.lineTo(-sc.size * 0.6, sc.size * 0.4);
-          bgCtx!.closePath();
-          bgCtx!.fillStyle = "#A0A8B0";
-          bgCtx!.fill();
-          bgCtx!.globalAlpha = 1;
-          bgCtx!.restore();
-
-          if (sc.x < -50 || sc.x > width + 50 || sc.y < -50 || sc.y > height + 50) {
-            spacecraft.splice(i, 1);
-          }
-        }
-      }
-
       // === Comets ============================================================
       if (!prefersReducedMotion) {
         if (elapsedMs >= nextCometTime) {
           spawnComet();
-          nextCometTime = elapsedMs + randRange(40000, 80000) * (isMobile() ? 1.5 : 1);
+          nextCometTime = elapsedMs + randRange(60000, 120000) * (isMobile() ? 1.5 : 1);
         }
 
         for (let i = comets.length - 1; i >= 0; i--) {
@@ -1370,22 +1214,14 @@ export default function SpaceStage() {
       olCtx!.clearRect(0, 0, width, height);
 
       if (!prefersReducedMotion) {
-        // Spawn overlay objects — frequent flyovers
-        if (elapsedMs >= nextOverlaySatTime) {
-          spawnOverlayObject("satellite");
-          nextOverlaySatTime = elapsedMs + randRange(8000, 15000) * (isMobile() ? 1.5 : 1);
-        }
+        // Spawn overlay objects — asteroids + rare comets only
         if (elapsedMs >= nextOverlayAstTime) {
           spawnOverlayObject("asteroid");
           nextOverlayAstTime = elapsedMs + randRange(12000, 25000) * (isMobile() ? 1.5 : 1);
         }
         if (elapsedMs >= nextOverlayCometTime) {
           spawnOverlayObject("comet");
-          nextOverlayCometTime = elapsedMs + randRange(15000, 30000) * (isMobile() ? 1.5 : 1);
-        }
-        if (elapsedMs >= nextOverlayDebrisTime) {
-          spawnOverlayObject("debris");
-          nextOverlayDebrisTime = elapsedMs + randRange(5000, 10000) * (isMobile() ? 1.5 : 1);
+          nextOverlayCometTime = elapsedMs + randRange(30000, 60000) * (isMobile() ? 1.5 : 1);
         }
 
         // Cap at 10 overlay objects
@@ -1396,9 +1232,7 @@ export default function SpaceStage() {
           obj.x += Math.cos(obj.angle) * obj.speed * factor;
           obj.y += Math.sin(obj.angle) * obj.speed * factor;
 
-          if (obj.type === "satellite") {
-            drawSatelliteShape(olCtx!, obj);
-          } else if (obj.type === "asteroid") {
+          if (obj.type === "asteroid") {
             if (obj.rotation !== undefined && obj.rotSpeed !== undefined) {
               obj.rotation += obj.rotSpeed * factor;
             }
@@ -1406,22 +1240,6 @@ export default function SpaceStage() {
           } else if (obj.type === "comet") {
             if (obj.life !== undefined) obj.life += factor;
             drawCometShape(olCtx!, obj);
-          } else if (obj.type === "debris") {
-            if (obj.rotation !== undefined && obj.rotSpeed !== undefined) {
-              obj.rotation += obj.rotSpeed * factor;
-            }
-            // Small metallic fragment with faint glint
-            const ctx = olCtx!;
-            ctx.save();
-            ctx.translate(obj.x, obj.y);
-            ctx.rotate(obj.rotation || 0);
-            ctx.globalAlpha = obj.alpha;
-            ctx.fillStyle = "#99aabb";
-            ctx.fillRect(-obj.size, -obj.size * 0.3, obj.size * 2, obj.size * 0.6);
-            // Glint highlight
-            ctx.fillStyle = "rgba(200, 230, 255, 0.6)";
-            ctx.fillRect(-obj.size * 0.3, -obj.size * 0.15, obj.size * 0.6, obj.size * 0.3);
-            ctx.restore();
           }
 
           // Remove if out of bounds

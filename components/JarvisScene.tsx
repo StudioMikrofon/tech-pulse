@@ -247,9 +247,9 @@ function generatePlanetTexture(name: string, w = 512, h = 256): HTMLCanvasElemen
       const sy = Math.sin(phi) * Math.sin(theta);
       const sz = Math.cos(phi);
       const v = Math.sin(sx * 8 + sy * 6) * Math.cos(sz * 7 + sx * 5) * Math.sin(sy * 9 + sz * 4);
-      const r = 230 + v * 25;
-      const g = 160 + v * 40;
-      const b = 40 + v * 25;
+      const r = 240 + v * 15;
+      const g = 185 + v * 25;
+      const b = 70 + v * 15;
       ctx.fillStyle = `rgb(${Math.floor(r)},${Math.floor(g)},${Math.floor(Math.max(0, b))})`;
       ctx.fillRect(x, y, 3, 3);
     }
@@ -261,7 +261,7 @@ function generatePlanetTexture(name: string, w = 512, h = 256): HTMLCanvasElemen
       const sr = 4 + Math.random() * 12;
       // Umbra
       const sg = ctx.createRadialGradient(sx, sy, 0, sx, sy, sr);
-      sg.addColorStop(0, "rgba(40,20,0,0.7)"); sg.addColorStop(0.5, "rgba(80,40,10,0.5)"); sg.addColorStop(1, "rgba(160,100,30,0)");
+      sg.addColorStop(0, "rgba(40,20,0,0.4)"); sg.addColorStop(0.5, "rgba(80,40,10,0.3)"); sg.addColorStop(1, "rgba(160,100,30,0)");
       ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(sx, sy, sr, 0, Math.PI * 2); ctx.fill();
     }
 
@@ -270,7 +270,7 @@ function generatePlanetTexture(name: string, w = 512, h = 256): HTMLCanvasElemen
       const fx = Math.random() * w, fy = Math.random() * h;
       const fr = 8 + Math.random() * 20;
       const fg = ctx.createRadialGradient(fx, fy, 0, fx, fy, fr);
-      fg.addColorStop(0, "rgba(255,255,220,0.35)"); fg.addColorStop(1, "rgba(255,240,180,0)");
+      fg.addColorStop(0, "rgba(255,255,220,0.5)"); fg.addColorStop(1, "rgba(255,240,180,0)");
       ctx.fillStyle = fg; ctx.beginPath(); ctx.arc(fx, fy, fr, 0, Math.PI * 2); ctx.fill();
     }
 
@@ -542,6 +542,7 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       moonMesh: THREE.Mesh;
       asteroidAnims: { id: string; mesh: THREE.Mesh; speed: number; angle: number; dist: number; approachAngle: number; trail: THREE.Points; initScale: THREE.Vector3; ghostMesh: THREE.Mesh; ghostLabels: THREE.Sprite[]; trajPts: THREE.Vector3[]; trajLine: THREE.Line; simActive: boolean }[];
       planetAnims: { mesh: THREE.Mesh; angle: number; speed: number; dist: number; tilt: number; visualRotSpeed: number }[];
+      probeAnims: { group: THREE.Group; trajLine: THREE.Line }[];
       scanBand: THREE.Mesh;
       sunCorona: THREE.Mesh;
       sunCoronaOuter: THREE.Mesh;
@@ -611,26 +612,26 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
 
       const controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
-      controls.dampingFactor = 0.12;
+      controls.dampingFactor = 0.2;
       controls.minDistance = 1;
       controls.maxDistance = 150;
-      controls.zoomSpeed = 2.5;
-      controls.rotateSpeed = 1.5;
+      controls.zoomSpeed = 1.0;
+      controls.rotateSpeed = 0.6;
       controls.target.copy(EARTH_POS);
 
       // Lighting — low ambient so day/night contrast is visible
-      scene.add(new THREE.AmbientLight(0x889aab, 0.12));
-      scene.add(new THREE.HemisphereLight(0xffffff, 0x222244, 0.08));
-      const sunLight = new THREE.PointLight(0xffffff, 3, 300);
+      scene.add(new THREE.AmbientLight(0x889aab, 0.06));
+      scene.add(new THREE.HemisphereLight(0xffffff, 0x222244, 0.04));
+      const sunLight = new THREE.PointLight(0xffffff, 3.5, 300);
       sunLight.position.copy(SUN_POS);
       scene.add(sunLight);
       // Strong directional light toward Earth for clear day/night
-      const dirLight = new THREE.DirectionalLight(0xfff8e0, 2.5);
+      const dirLight = new THREE.DirectionalLight(0xfff8e0, 3.0);
       dirLight.position.copy(SUN_POS);
       dirLight.target.position.copy(EARTH_POS);
       scene.add(dirLight);
       scene.add(dirLight.target);
-      const fillLight = new THREE.PointLight(0x0066ff, 0.15, 100);
+      const fillLight = new THREE.PointLight(0x0066ff, 0.08, 100);
       fillLight.position.set(30, 10, 20);
       scene.add(fillLight);
 
@@ -661,10 +662,10 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         new THREE.SphereGeometry(EARTH_RADIUS, 64, 64),
         new THREE.MeshStandardMaterial({
           map: earthDayTex, bumpMap: earthBumpTex, bumpScale: 0.03,
-          roughness: 0.45, metalness: 0.1,
+          roughness: 0.55, metalness: 0.05,
           emissiveMap: earthNightTex,
-          emissive: new THREE.Color(1, 1, 1),
-          emissiveIntensity: 0.8,
+          emissive: new THREE.Color(1, 0.9, 0.7),
+          emissiveIntensity: 1.0,
         }),
       );
       earthCore.position.copy(EARTH_POS);
@@ -1020,6 +1021,7 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       });
 
       // ===== PROBES =====
+      const probeAnims: NonNullable<typeof internals.current>["probeAnims"] = [];
       PROBES_DATASET.entries.forEach((probe) => {
         const scaledDist = probe.distanceAU > 10
           ? 60 + Math.log10(probe.distanceAU / 10) * 30
@@ -1030,6 +1032,7 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
 
         const probeGroup = buildProbeModel(probe.name);
         probeGroup.position.set(px, 0.2, pz);
+        if (probe.name === "JWST") probeGroup.scale.setScalar(3);
         scene.add(probeGroup);
         objectMap.set(probe.id, probeGroup);
 
@@ -1046,6 +1049,8 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         );
         trajLine.computeLineDistances();
         scene.add(trajLine);
+
+        probeAnims.push({ group: probeGroup, trajLine });
 
         const lbl = createLabel(probe.name, "#00D4FF", 1.5);
         lbl.position.y = 0.6;
@@ -1122,7 +1127,7 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         flyDist: 8,
         objectMap, selectedId: null as string | null,
         prevSelectedId: null as string | null,
-        issMesh, moonMesh, asteroidAnims, planetAnims,
+        issMesh, moonMesh, asteroidAnims, planetAnims, probeAnims,
         scanBand, sunCorona, sunCoronaOuter, sunMesh, earthCore,
       };
       internals.current = state;
@@ -1214,8 +1219,8 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         moonMesh.rotation.y += delta * 0.02;
 
         // Earth rotation — slow so ISS doesn't appear to race
-        earthCore.rotation.y += delta * 0.005;
-        scanBand.rotation.y += delta * 0.005;
+        earthCore.rotation.y += delta * 0.01;
+        scanBand.rotation.y += delta * 0.01;
 
         // Scan band texture
         scanCtx.clearRect(0, 0, 512, 256);
@@ -1275,6 +1280,21 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
             pa.mesh.position.set(SUN_POS.x + Math.cos(pa.angle) * pa.dist, 0, SUN_POS.z + Math.sin(pa.angle) * pa.dist);
           }
           pa.mesh.rotation.y += pa.visualRotSpeed * delta;
+        }
+
+        // Probe idle animation — gentle rotation + bobbing
+        for (const pa of probeAnims) {
+          pa.group.rotation.y += delta * 0.15;
+          pa.group.position.y = 0.2 + Math.sin(elapsed * 0.5 + pa.group.position.x) * 0.05;
+          // Probe trajectory flow effect
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (pa.trajLine.material as any).dashOffset -= delta * 0.3;
+        }
+
+        // Asteroid trajectory flow effect
+        for (const aa of asteroidAnims) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (aa.trajLine.material as any).dashOffset -= delta * 0.5;
         }
 
         // Sun + solar flares

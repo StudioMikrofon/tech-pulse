@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 
 import {
   X, Satellite, Radio, Zap, Activity, MapPin,
-  Rocket, Waves, ChevronRight, Play, Pause, Volume2,
+  Rocket, Waves, ChevronRight, Play,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useSpaceProData, DSN_STATIONS } from "@/lib/space-pro-data";
@@ -44,13 +44,6 @@ const TABS: { key: SidebarTab; label: string; icon: typeof Satellite }[] = [
   { key: "dsn", label: "DSN", icon: Radio },
   { key: "launches", label: "Launch", icon: Rocket },
   { key: "radiojove", label: "JOVE", icon: Waves },
-];
-
-// JOVE audio samples (NASA public domain / educational archives)
-const JOVE_AUDIO_SAMPLES = [
-  { id: "jupiter-samples", label: "Jupiter Radio Emissions", src: "/audio/jove/jupiter-emissions.mp3", source: "Jupiter" },
-  { id: "solar-burst-2023", label: "Solar Type II (M9.8)", src: "/audio/jove/solar-type2-burst.mp3", source: "Sun" },
-  { id: "solar-burst-type3", label: "Solar Type III Burst", src: "/audio/jove/solar-type3-burst.mp3", source: "Sun" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -110,7 +103,7 @@ function AsteroidDistanceBar({ asteroid }: { asteroid: AsteroidDetail }) {
   );
 }
 
-function JarvisTerminalHUD({ obj, onClose, onSimToggle }: { obj: { type: string; name: string; data: Record<string, string> }; onClose: () => void; onSimToggle?: () => void }) {
+function JarvisTerminalHUD({ obj, onClose, onSimToggle, compact }: { obj: { type: string; name: string; data: Record<string, string> }; onClose: () => void; onSimToggle?: () => void; compact?: boolean }) {
   const [displayedText, setDisplayedText] = useState("");
   const audioCtxRef = useRef<AudioContext | null>(null);
 
@@ -126,34 +119,39 @@ function JarvisTerminalHUD({ obj, onClose, onSimToggle }: { obj: { type: string;
     return lines.join("\n");
   }, [obj.type, obj.name, obj.data]);
 
-  // Tiny click sound per character
+  // Sci-fi terminal tick sound per character
   const playTypeTick = useCallback(() => {
     try {
+      if (typeof localStorage !== "undefined" && localStorage.getItem("tp-sound") === "off") return;
       if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
       const ctx = audioCtxRef.current;
       const osc = ctx.createOscillator();
+      const hp = ctx.createBiquadFilter();
       const gain = ctx.createGain();
-      osc.connect(gain);
+      hp.type = "highpass";
+      hp.frequency.value = 2000;
+      osc.connect(hp);
+      hp.connect(gain);
       gain.connect(ctx.destination);
-      osc.frequency.value = 300 + Math.random() * 200;
-      osc.type = "sine";
-      gain.gain.value = 0.008;
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.02);
+      osc.frequency.value = 800 + Math.random() * 400;
+      osc.type = "square";
+      gain.gain.value = 0.005;
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.015);
       osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.02);
+      osc.stop(ctx.currentTime + 0.015);
     } catch { /* audio not available */ }
   }, []);
 
   useEffect(() => {
     setDisplayedText("");
     let charIdx = 0;
-    const speed = 8; // ms per character
+    const speed = 5; // ms per character
     const timer = setInterval(() => {
       if (charIdx < fullText.length) {
         setDisplayedText(fullText.slice(0, charIdx + 1));
         // Play tick every 3rd visible character only
         const ch = fullText[charIdx];
-        if (ch !== " " && ch !== "\n" && ch !== "─" && charIdx % 3 === 0) playTypeTick();
+        if (ch !== " " && ch !== "\n" && ch !== "─") playTypeTick();
         charIdx++;
       } else {
         clearInterval(timer);
@@ -163,7 +161,7 @@ function JarvisTerminalHUD({ obj, onClose, onSimToggle }: { obj: { type: string;
   }, [fullText, playTypeTick]);
 
   return (
-    <div className="font-mono text-[11px] select-none max-w-80">
+    <div className={`font-mono select-none ${compact ? "text-[9px] max-w-60" : "text-[11px] max-w-80"}`}>
       {/* Scanline top bar */}
       <div className="flex items-center gap-2 mb-1.5">
         <div className="flex-1 h-px bg-gradient-to-r from-cyan-400/80 via-cyan-400/30 to-transparent animate-pulse" />
@@ -230,83 +228,6 @@ function TelemetryPanel({ objectId }: { objectId: string }) {
           </div>
         </div>
       ))}
-    </div>
-  );
-}
-
-function JoveAudioPlayer() {
-  const [playingId, setPlayingId] = useState<string | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  const handlePlay = useCallback((sample: typeof JOVE_AUDIO_SAMPLES[0]) => {
-    if (playingId === sample.id) {
-      audioRef.current?.pause();
-      setPlayingId(null);
-      return;
-    }
-    if (audioRef.current) {
-      audioRef.current.pause();
-    }
-    const audio = new Audio(sample.src);
-    audioRef.current = audio;
-    audio.play().then(() => {
-      setPlayingId(sample.id);
-      playSound("dataStream");
-    }).catch(() => {
-      setPlayingId(null);
-    });
-    audio.onended = () => setPlayingId(null);
-    audio.onerror = () => setPlayingId(null);
-  }, [playingId]);
-
-  useEffect(() => {
-    return () => { audioRef.current?.pause(); };
-  }, []);
-
-  return (
-    <div className="glass-card p-3 space-y-2 !hover:transform-none border-purple-500/20">
-      <div className="flex items-center gap-2 mb-1">
-        <Volume2 className="w-3 h-3 text-purple-400" />
-        <h4 className="text-[11px] font-mono text-purple-400">SIGNAL PLAYBACK</h4>
-      </div>
-      {JOVE_AUDIO_SAMPLES.map((sample) => {
-        const isPlaying = playingId === sample.id;
-        return (
-          <button
-            key={sample.id}
-            onClick={() => handlePlay(sample)}
-            className={`w-full flex items-center gap-2 p-2 rounded-lg transition-colors cursor-pointer ${
-              isPlaying ? "bg-purple-400/15 border border-purple-400/30" : "hover:bg-white/5 border border-transparent"
-            }`}
-          >
-            <div className={`w-6 h-6 rounded-full flex items-center justify-center ${isPlaying ? "bg-purple-400/20" : "bg-white/5"}`}>
-              {isPlaying ? <Pause className="w-3 h-3 text-purple-400" /> : <Play className="w-3 h-3 text-purple-400/60" />}
-            </div>
-            <div className="flex-1 text-left">
-              <p className="text-[11px] font-mono text-text-primary">{sample.label}</p>
-              <p className="text-[9px] font-mono text-text-secondary">{sample.source}</p>
-            </div>
-            {/* Waveform bars */}
-            {isPlaying && (
-              <div className="flex items-end gap-[2px] h-4">
-                {[...Array(5)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="w-[3px] bg-purple-400 rounded-full animate-waveform-bar"
-                    style={{
-                      animationDelay: `${i * 0.1}s`,
-                      height: "100%",
-                    }}
-                  />
-                ))}
-              </div>
-            )}
-          </button>
-        );
-      })}
-      <p className="text-[8px] font-mono text-text-secondary/40 text-center mt-1">
-        NASA Radio JOVE — radiojove.gsfc.nasa.gov
-      </p>
     </div>
   );
 }
@@ -400,7 +321,7 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
       else if (activeTab === "dsn") focusOn({ type: "earth" });
       else if (activeTab === "asteroids") focusOn({ type: "earth" });
       else if (activeTab === "launches") focusOn({ type: "earth" });
-      else if (activeTab === "radiojove") focusOn({ type: "sun" });
+      else if (activeTab === "radiojove") focusOn({ type: "planet", id: "planet-jupiter" });
     }, 300);
     return () => clearTimeout(t);
   }, [activeTab, open, focusOn]);
@@ -472,6 +393,7 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
               <JarvisTerminalHUD
                 obj={hudObj}
                 onClose={() => setHudObj(null)}
+                compact={isLandscape || sceneSize.w < 640}
                 onSimToggle={hudObj.type === "Asteroid" && selectedAsteroidId ? () => {
                   jarvisRef.current?.toggleAsteroidSim(selectedAsteroidId);
                   playSound("ping");
@@ -495,7 +417,7 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
         </div>
 
         {/* Sidebar */}
-        <div className={`shrink-0 bg-space-bg/95 backdrop-blur-xl border-l border-cyan-500/20 overflow-y-auto flex flex-col ${isLandscape ? "w-[35%] max-h-full" : "w-full sm:w-[380px] max-h-[55vh] sm:max-h-full"}`}>
+        <div className={`shrink-0 bg-space-bg/95 backdrop-blur-xl border-l border-cyan-500/20 overflow-y-auto flex flex-col overscroll-contain ${isLandscape ? "w-[35%] max-w-[300px] max-h-full" : "w-full sm:w-[380px] max-h-[55vh] sm:max-h-full"}`}>
           {/* Tabs */}
           <div className="flex border-b border-cyan-500/20 shrink-0">
             {TABS.map((tab) => {
@@ -518,7 +440,7 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
           </div>
 
           {/* Tab content */}
-          <div className="flex-1 p-4 space-y-3 overflow-y-auto">
+          <div className="flex-1 p-4 space-y-3 overflow-y-auto overscroll-contain">
 
             {/* ===== ISS ===== */}
             {activeTab === "iss" && (
@@ -805,9 +727,6 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
                     </div>
                   ))}
                 </div>
-
-                {/* JOVE Audio Player — recorded samples */}
-                <JoveAudioPlayer />
 
                 {/* JOVE Live Stream — link (embedding disabled by channel) */}
                 <div className="glass-card p-3 space-y-2 !hover:transform-none border-red-500/20">
