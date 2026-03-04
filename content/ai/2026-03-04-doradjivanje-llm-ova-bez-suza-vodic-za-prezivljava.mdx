@@ -1,0 +1,48 @@
+---
+id: "2026-03-04-doradjivanje-llm-ova-bez-suza-vodic-za-prezivljava"
+title: "Dorađivanje LLM-ova bez suza: Vodič za preživljavanje u Colabu"
+category: "ai"
+date: "2026-03-04T12:00:00Z"
+excerpt: "Novi vodič za dorađivanje velikih jezičnih modela pomoću Unslotha i QLoRA-e obećava stabilnost u Google Colabu – platformi poznatoj po svojoj nepredvidivosti. Riječ je manje o inovacijama, a više o tome kako natjerati sustav da napokon radi bez rušenja. Ponovno."
+source:
+  name: "MarkTechPost"
+  url: "https://www.marktechpost.com/2026/03/03/how-to-build-a-stable-and-efficient-qlora-fine-tuning-pipeline-using-unsloth-for-large-language-models/"
+image:
+  url: "/images/articles/doradjivanje-llm-ova-bez-suza-vodic-za-prezivljava.png"
+  alt: "Dorađivanje LLM-ova bez suza: Vodič za preživljavanje u Colabu"
+images:
+  - url: "/images/articles/doradjivanje-llm-ova-bez-suza-vodic-za-prezivljava-sub1.png"
+    alt: "Subheading 1"
+  - url: "/images/articles/doradjivanje-llm-ova-bez-suza-vodic-za-prezivljava-sub2.png"
+    alt: "Subheading 2"
+tags: ["future-pulse", "automated", "ai"]
+geo:
+  name: "Mountain View"
+  lat: 37.3861
+  lon: -122.0839
+  countryCode: "US"
+featured: false
+approved: true
+---
+
+## Cjevovod za dorađivanje koji ne eksplodira
+
+Dorađivanje velikih jezičnih modela (LLM-ova) trebalo bi biti jednostavno: uzmete model, prilagodite ga i implementirate. Ali svatko tko je to pokušao u Google Colabu zna da je stvarnost bliža situaciji u kojoj pokušavate deaktivirati bombu nožem za maslac. Vodič s portala [MarkTechPost](https://www.marktechpost.com) o korištenju [Unslotha](https://github.com/unslothai/unsloth) i [QLoRA-e](https://arxiv.org/abs/2305.14314) nije revolucionaran, već priručnik za preživljavanje.
+
+Rješava uobičajene probleme s Colabom – od neuspješnog otkrivanja GPU-a do rušenja runtimea i nekompatibilnosti – s onom vrstom mračne odlučnosti koja pripada administratorima sustava u petak navečer. Fokus nije na pomicanju granica, već na osiguravanju da cjevovod ne kolabira prije nego što prva epoha završi.
+
+Ironija? To je ono što u razvoju umjetne inteligencije prolazi kao napredak. Dok industrija jurca za sljedećim velikim modelom, prava se borba odvija u rovovima, gdje se debugiraju CUDA greške i moli se da runtime ne prekine vezu. Unsloth i QLoRA nisu atraktivni; to su alati za one koji su već prihvatili činjenicu da je dorađivanje 10% inspiracije i 90% kontrole okruženja.
+
+Naglasak vodiča na stabilnosti umjesto brzini tihi je priznanje da većina praktičara provodi više vremena boreći se s alatima nego trenirajući modele. Ako ste ikad gledali kako Colab sesija umire usred treniranja, znate olakšanje kad netko prizna problem – i ponudi rješenje.
+
+Za kontekst, Google Colab je jeftino igralište za entuzijaste umjetne inteligencije, nudeći besplatan pristup GPU-u s pouzdanošću iznajmljenog automobila. Platformina sklonost da se prekine veza, ograniči resurse ili ne uspije otkriti GPU bez upozorenja stvorila je cijeli podžanr zaobilaznih rješenja. Ovaj vodič ne popravlja mane Colaba – samo vam pomaže da ih izdržite. I u industriji u kojoj hype ciklus leti brzinom svjetlosti, izdržljivost je podcijenjena vještina.
+
+## Tko ima koristi, a tko ostaje s dnevnikom rušenja
+
+Pobjednici su praktičari – istraživači, nezavisni programeri i startupovi bez dovoljno sredstava za vlastite GPU klastere. Za njih stabilan cjevovod za dorađivanje u Colabu znači razliku između isporuke prototipa i još jednog tjedna provedenog u debugiranju sukoba ovisnosti. Unsloth i QLoRA, s naglaskom na učinkovitost i kompatibilnost, ciljaju na tu publiku smanjujući troškove pokretanja modela bez da se sustav sruši.
+
+Nije glamurozno, ali je nužno. Samo postojanje ovog vodiča tihi je priznanje da većina posla u umjetnoj inteligenciji nije u osvajanju novih visina, već u tome da se ne utopite u osnovama.
+
+Gubitnici? Svi koji očekuju besprijekorno iskustvo. Nepouzdanost Google Colaba nije bug – to je značajka, ili barem mjera uštede. Besplatni paket platforme je velikodušan dok ne prestane biti, a plaćene opcije i dalje su kockanje.
+
+What happens when the tools we rely on are more fragile than the models we’re building? If AI’s future depends on platforms like Colab, are we doomed to perpetual duct-tape solutions—or is someone finally going to fix the infrastructure?
