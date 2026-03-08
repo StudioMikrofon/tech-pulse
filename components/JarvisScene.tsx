@@ -233,11 +233,14 @@ function generatePlanetTexture(name: string, w = 512, h = 256): HTMLCanvasElemen
     ctx.fillStyle = "rgba(20,30,80,0.4)"; ctx.fill();
   } else if (n === "sun") {
     // Professional sun with granulation and active regions
-    const w2 = w, h2 = h;
-    // Base solar color
-    const bg = ctx.createRadialGradient(w2 / 2, h2 / 2, 0, w2 / 2, h2 / 2, w2 / 2);
-    bg.addColorStop(0, "#fff8e0"); bg.addColorStop(0.3, "#ffcc44"); bg.addColorStop(0.6, "#ff9900"); bg.addColorStop(1, "#ff6600");
-    ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
+    // Base: solid warm fill (equirectangular — no radial gradient to avoid dark poles)
+    ctx.fillStyle = "#ff9900";
+    ctx.fillRect(0, 0, w, h);
+    // Subtle horizontal brightness variation (limb darkening across latitude)
+    const limbG = ctx.createLinearGradient(0, 0, 0, h);
+    limbG.addColorStop(0, "rgba(80,30,0,0.25)"); limbG.addColorStop(0.15, "rgba(0,0,0,0)");
+    limbG.addColorStop(0.5, "rgba(255,255,200,0.08)"); limbG.addColorStop(0.85, "rgba(0,0,0,0)"); limbG.addColorStop(1, "rgba(80,30,0,0.25)");
+    ctx.fillStyle = limbG; ctx.fillRect(0, 0, w, h);
 
     // Granulation (convection cells) — spherical coords for seamless tiling
     for (let y = 0; y < h; y += 3) for (let x = 0; x < w; x += 3) {
@@ -356,7 +359,7 @@ function latLonToSphere(lat: number, lon: number, radius: number, center: THREE.
 }
 
 /** Build the data object for an object ID — used by both click handler and focusOn */
-function getObjectData(id: string, issData: ISSData): { type: string; name: string; data: Record<string, string> } | null {
+function getObjectData(id: string, issData: ISSData, crewCount?: number): { type: string; name: string; data: Record<string, string> } | null {
   const data: Record<string, string> = {};
   let type = "object";
   let displayName = id.toUpperCase();
@@ -380,7 +383,7 @@ function getObjectData(id: string, issData: ISSData): { type: string; name: stri
     data["Brzina"] = `${issData.speed.toLocaleString()} km/h`;
     data["Pozicija"] = `${issData.lat.toFixed(2)}°, ${issData.lon.toFixed(2)}°`;
     data["Inklinacija"] = `${ISS_INCLINATION}°`;
-    data["Posada"] = `${issData.crew} članova`;
+    data["Posada"] = `${crewCount ?? 7} članova`;
     data["Orbitalni period"] = "92.68 min";
   } else if (id === "moon") {
     type = "Mjesec";
@@ -449,6 +452,11 @@ function computeFlyTo(id: string, type: string, pos: THREE.Vector3) {
   if (type === "ISS") {
     flyTarget = pos.clone().add(new THREE.Vector3(0, 2, 3));
     flyLook = pos.clone();
+  } else if (id === "planet-jupiter") {
+    // Cinematic: approach from slightly above-left, Jupiter offset right of center
+    const dirToSun = SUN_POS.clone().sub(pos).normalize();
+    flyTarget = pos.clone().add(dirToSun.clone().multiplyScalar(dist)).add(new THREE.Vector3(0, dist * 0.4, 0));
+    flyLook = pos.clone().add(new THREE.Vector3(dist * 0.6, 0, 0)); // offset look right = Jupiter left of center
   } else {
     const dirToEarth = EARTH_POS.clone().sub(pos).normalize();
     flyTarget = pos.clone().sub(dirToEarth.clone().multiplyScalar(dist));
@@ -540,7 +548,7 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       prevSelectedId: string | null;
       issMesh: THREE.Mesh;
       moonMesh: THREE.Mesh;
-      asteroidAnims: { id: string; mesh: THREE.Mesh; speed: number; angle: number; dist: number; approachAngle: number; trail: THREE.Points; initScale: THREE.Vector3; ghostMesh: THREE.Mesh; ghostLabels: THREE.Sprite[]; trajPts: THREE.Vector3[]; trajLine: THREE.Line; simActive: boolean }[];
+      asteroidAnims: { id: string; mesh: THREE.Mesh; speed: number; angle: number; dist: number; approachAngle: number; approachMs: number; trail: THREE.Points; initScale: THREE.Vector3; ghostMesh: THREE.Mesh; ghostLabels: THREE.Sprite[]; trajPts: THREE.Vector3[]; trajLine: THREE.Line; simActive: boolean }[];
       planetAnims: { mesh: THREE.Mesh; angle: number; speed: number; dist: number; tilt: number; visualRotSpeed: number }[];
       probeAnims: { group: THREE.Group; trajLine: THREE.Line }[];
       scanBand: THREE.Mesh;
@@ -562,6 +570,7 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
           internals.current.flyDist = 8;
           internals.current.selectedId = null;
           onSelectObject?.(null);
+          for (const aa of asteroidAnims) aa.trajLine.visible = false;
           return;
         }
 
@@ -579,6 +588,11 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
           internals.current.flyLook = flyLook;
           internals.current.flyDist = dist;
           internals.current.selectedId = key;
+
+          // Show trajectory for selected asteroid, hide for others
+          for (const aa of asteroidAnims) {
+            aa.trajLine.visible = aa.id === key;
+          }
         }
       },
       toggleAsteroidSim: (id: string) => {
@@ -604,6 +618,7 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       renderer.setSize(width, height);
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
       renderer.toneMappingExposure = 1.3;
+      renderer.domElement.style.touchAction = "none";
       container.appendChild(renderer.domElement);
 
       const scene = new THREE.Scene();
@@ -619,9 +634,9 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       controls.rotateSpeed = 0.6;
       controls.target.copy(EARTH_POS);
 
-      // Lighting — low ambient so day/night contrast is visible
-      scene.add(new THREE.AmbientLight(0x889aab, 0.06));
-      scene.add(new THREE.HemisphereLight(0xffffff, 0x222244, 0.04));
+      // Lighting — balanced so planets look good but Earth still has day/night contrast
+      scene.add(new THREE.AmbientLight(0x889aab, 0.18));
+      scene.add(new THREE.HemisphereLight(0xffffff, 0x222244, 0.10));
       const sunLight = new THREE.PointLight(0xffffff, 3.5, 300);
       sunLight.position.copy(SUN_POS);
       scene.add(sunLight);
@@ -675,7 +690,7 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       // Atmosphere
       const atmosMesh = new THREE.Mesh(
         new THREE.SphereGeometry(EARTH_RADIUS * 1.08, 32, 32),
-        new THREE.MeshBasicMaterial({ color: 0x00d4ff, transparent: true, opacity: 0.06 }),
+        new THREE.MeshBasicMaterial({ color: 0x00d4ff, transparent: true, opacity: 0.06, depthWrite: false }),
       );
       atmosMesh.position.copy(EARTH_POS);
       scene.add(atmosMesh);
@@ -762,7 +777,7 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         new THREE.SphereGeometry(MOON_RADIUS, 32, 32),
         new THREE.MeshStandardMaterial({
           map: moonTex, roughness: 0.85, metalness: 0.05,
-          emissive: new THREE.Color(0x444444), emissiveIntensity: 0.2,
+          emissive: new THREE.Color(0x666666), emissiveIntensity: 0.5,
         }),
       );
       const moonLonDeg = (218.316 + 13.176396 * DAYS_SINCE_J2000) % 360;
@@ -856,7 +871,7 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
           new THREE.LineDashedMaterial({ color: 0x00d4ff, transparent: true, opacity: 0.5, dashSize: 0.3, gapSize: 0.15 }),
         );
         trajLine.computeLineDistances();
-        trajLine.visible = true;
+        trajLine.visible = false;
         scene.add(trajLine);
 
         // Ghost mesh for flyby simulation (hidden by default)
@@ -888,8 +903,9 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         aMesh.add(lbl);
 
         asteroidAnims.push({
-          id: asteroid.id, mesh: aMesh, speed: asteroid.speedKmH * 0.000001,
+          id: asteroid.id, mesh: aMesh, speed: asteroid.speedKmH * 0.000008,
           angle, dist: scaledDist, approachAngle: asteroid.approachAngle,
+          approachMs: new Date(asteroid.closestApproach).getTime(),
           trail, initScale: aMesh.scale.clone(),
           ghostMesh, ghostLabels, trajPts, trajLine, simActive: false,
         });
@@ -912,14 +928,14 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       // Inner corona glow
       const sunCorona = new THREE.Mesh(
         new THREE.SphereGeometry(4, 24, 24),
-        new THREE.MeshBasicMaterial({ color: 0xffcc44, transparent: true, opacity: 0.12 }),
+        new THREE.MeshBasicMaterial({ color: 0xffcc44, transparent: true, opacity: 0.12, depthWrite: false }),
       );
       sunCorona.position.copy(SUN_POS);
       scene.add(sunCorona);
       // Outer corona
       const sunCoronaOuter = new THREE.Mesh(
         new THREE.SphereGeometry(6, 24, 24),
-        new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.05 }),
+        new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.05, depthWrite: false }),
       );
       sunCoronaOuter.position.copy(SUN_POS);
       scene.add(sunCoronaOuter);
@@ -973,12 +989,14 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         const pGeo = new THREE.SphereGeometry(p.radius, 32, 32);
         const fallbackCanvas = generatePlanetTexture(p.name);
         const fallbackTex = new THREE.CanvasTexture(fallbackCanvas);
+        // Jupiter gets low emissive so sunLight casts visible shadow on its surface
+        const isJupiter = p.name === "Jupiter";
         const pMat = new THREE.MeshStandardMaterial({
           map: fallbackTex,
-          roughness: p.gasGiant ? 0.5 : 0.65,
-          metalness: p.gasGiant ? 0.1 : 0.15,
-          emissive: new THREE.Color(p.color),
-          emissiveIntensity: p.gasGiant ? 0.15 : 0.1,
+          roughness: p.gasGiant ? 0.45 : 0.65,
+          metalness: p.gasGiant ? 0.05 : 0.15,
+          emissive: new THREE.Color(isJupiter ? 0x0a0500 : 0x222222),
+          emissiveIntensity: isJupiter ? 0.08 : 0.6,
         });
 
         const texFile = planetTexFiles[p.name.toLowerCase()];
@@ -1233,15 +1251,18 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         scanCtx.fillRect(0, bandY - 20, 512, 40);
         scanTex.needsUpdate = true;
 
-        // Asteroids
+        // Asteroids — live position along trajectory based on time from closest approach
+        const nowMs = Date.now();
         for (let ai = 0; ai < asteroidAnims.length; ai++) {
           const aa = asteroidAnims[ai];
-          aa.angle += aa.speed * delta;
-          const d = aa.dist + Math.sin(elapsed * 0.1 + aa.approachAngle) * 0.3;
-          const approachRad = (aa.approachAngle * Math.PI) / 180;
-          const newX = EARTH_POS.x + Math.cos(approachRad + aa.angle * 0.01) * d;
-          const newY = EARTH_POS.y + Math.sin(elapsed * 0.3 + aa.approachAngle) * 0.2;
-          const newZ = EARTH_POS.z + Math.sin(approachRad + aa.angle * 0.01) * d;
+          // Trajectory spans ±48h from closest approach (matches ghost label offsets)
+          const hoursFromApproach = (nowMs - aa.approachMs) / 3_600_000;
+          const t = Math.max(-1, Math.min(1, hoursFromApproach / 48));
+          const idx = Math.round(40 + t * 40); // 0 = 48h before, 40 = at approach, 80 = 48h after
+          const pt = aa.trajPts[Math.max(0, Math.min(80, idx))];
+          const newX = pt.x;
+          const newY = pt.y + Math.sin(elapsed * 0.4 + aa.approachAngle) * 0.05;
+          const newZ = pt.z;
 
           const hist = trailHistory[ai];
           hist.unshift(new THREE.Vector3(newX, newY, newZ));
@@ -1342,27 +1363,31 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
           }
         }
 
-        // Camera fly-to
-        if (state.flyLook) {
+        // Camera fly-to — stop lerping when user is actively dragging
+        if (state.flyLook && !interacting) {
           controls.target.lerp(state.flyLook, 0.06);
           if (controls.target.distanceTo(state.flyLook) < 0.05) state.flyLook = null;
         }
-        if (state.flyTarget) {
+        if (state.flyTarget && !interacting) {
           camera.position.lerp(state.flyTarget, 0.04);
           if (camera.position.distanceTo(state.flyTarget) < 0.05) state.flyTarget = null;
         }
 
-        // Auto-rotate: 10s idle delay, very slow speed
+        // Auto-rotate: gentle always-on drift after 5s idle
+        // Slower when object is focused, normal when free
         if (!interacting && !state.flyTarget) {
           idleTime += delta;
-          if (idleTime > 10) {
-            const autoSpeed = Math.min((idleTime - 10) * 0.0005, 0.0015);
+          if (idleTime > 5) {
+            const maxSpeed = state.selectedId ? 0.0003 : 0.0006;
+            const autoSpeed = Math.min((idleTime - 5) * 0.0002, maxSpeed);
             const camDir = camera.position.clone().sub(controls.target);
             const camDist = camDir.length();
             camDir.normalize();
-            camDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), autoSpeed * 0.15);
+            camDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), autoSpeed);
             camera.position.copy(controls.target).add(camDir.multiplyScalar(camDist));
           }
+        } else {
+          idleTime = 0;
         }
 
         controls.update();
@@ -1388,7 +1413,7 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
         internals.current = null;
       };
-    }, [width, height, onSelectObject, issData]);
+    }, [width, height, onSelectObject]); // issData excluded — read via issDataRef.current to prevent scene rebuild every 5s
 
     return <div ref={containerRef} className="w-full h-full cursor-grab active:cursor-grabbing" />;
   },

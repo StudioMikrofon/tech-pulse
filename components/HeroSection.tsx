@@ -23,6 +23,7 @@ export default function HeroSection({
   const globeContainerRef = useRef<HTMLDivElement>(null);
   const globeRef = useRef<GlobeHandle>(null);
   const [globeSize, setGlobeSize] = useState(600);
+  const [globeHeight, setGlobeHeight] = useState(600);
   const [quizMode, setQuizMode] = useState(false);
   const [quizPin, setQuizPin] = useState<{ lat: number; lng: number; label: string; color: string; id: string }[]>([]);
 
@@ -31,6 +32,7 @@ export default function HeroSection({
       if (globeContainerRef.current) {
         const w = globeContainerRef.current.clientWidth;
         setGlobeSize(Math.min(w, 900));
+        setGlobeHeight(window.innerWidth < 768 ? 420 : Math.min(w, 900));
       }
     }
     updateSize();
@@ -39,7 +41,7 @@ export default function HeroSection({
   }, []);
 
   return (
-    <section className="relative overflow-hidden" ref={globeContainerRef}>
+    <section className="relative overflow-hidden bg-space-bg" ref={globeContainerRef}>
       {/* Globe as decorative background — centered behind featured article */}
       <div className={`absolute inset-0 flex items-center justify-center ${quizMode ? 'opacity-80' : 'opacity-50 pointer-events-none'}`}>
         <div className="globe-glow">
@@ -47,7 +49,7 @@ export default function HeroSection({
             ref={globeRef}
             pins={quizPin}
             width={globeSize}
-            height={typeof window !== "undefined" && window.innerWidth < 768 ? 420 : globeSize}
+            height={globeHeight}
             autoRotate={true}
             enableZoom={false}
             initialAltitude={1.5}
@@ -59,12 +61,12 @@ export default function HeroSection({
       <div className="relative z-10 max-w-7xl mx-auto px-4">
         {/* Featured article — centered over globe */}
         <div className="max-w-3xl mx-auto text-center space-y-5 py-20 lg:py-32">
-          <div className="flex items-center justify-center gap-2 text-xs font-mono text-accent-cyan/70">
-            <Satellite className="w-3 h-3 animate-pulse" />
-            <span className="terminal-text">
+          <div className="flex items-center justify-center gap-2 text-xs font-mono text-accent-cyan/70 flex-wrap text-center">
+            <Satellite className="w-3 h-3 animate-pulse shrink-0" />
+            <span className="terminal-text whitespace-nowrap">
               LIVE FEED // ORBITAL NETWORK
             </span>
-            <span className="live-dot" />
+            <span className="live-dot shrink-0" />
           </div>
 
           <span
@@ -163,7 +165,7 @@ export default function HeroSection({
       </div>
 
       {/* Bottom gradient fade */}
-      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-space-bg to-transparent z-10" />
+      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-space-bg to-transparent z-10 pointer-events-none" />
     </section>
   );
 }

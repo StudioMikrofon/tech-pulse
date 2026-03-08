@@ -63,27 +63,27 @@ export default function SpaceProDashboard() {
               Solar Activity
             </h2>
           </div>
-          <KpGauge value={data.solar.kpIndex} />
+          <KpGauge value={data.solar?.kp_index ?? 0} />
           <div className="grid grid-cols-3 gap-4 text-sm">
             <div>
               <span className="text-text-secondary block text-xs">Flare Class</span>
               <p className="font-mono font-bold text-accent-amber text-lg">
-                {data.solar.flareClass}
+                {data.solar?.flare_class ?? "—"}
               </p>
             </div>
             <div>
               <span className="text-text-secondary block text-xs">Solar Wind</span>
               <p className="font-mono font-bold text-text-primary text-lg">
-                {data.solar.solarWind} <span className="text-xs text-text-secondary">km/s</span>
+                {data.solar?.solar_wind ?? 0} <span className="text-xs text-text-secondary">km/s</span>
               </p>
             </div>
             <div>
               <span className="text-text-secondary block text-xs">Aurora</span>
               <p
                 className="font-mono font-bold capitalize text-lg"
-                style={{ color: auroraColors[data.solar.auroraChance] || "#A7B3D1" }}
+                style={{ color: auroraColors[data.solar?.aurora_chance ?? "none"] || "#A7B3D1" }}
               >
-                {data.solar.auroraChance}
+                {data.solar?.aurora_chance ?? "none"}
               </p>
             </div>
           </div>
@@ -101,20 +101,20 @@ export default function SpaceProDashboard() {
             <div>
               <span className="text-text-secondary block text-xs">Near-Earth</span>
               <p className="font-mono font-bold text-text-primary text-3xl">
-                {data.asteroids.countToday}
+                {data.neo_count ?? 0}
               </p>
             </div>
             <div>
               <span className="text-text-secondary block text-xs">Closest</span>
               <p className="font-mono font-bold text-accent-cyan text-xl">
-                {data.asteroids.closestDistanceLD} LD
+                {data.neo_closest?.distance_ld ?? "—"} LD
               </p>
-              <p className="text-xs text-text-secondary">{data.asteroids.closestName}</p>
+              <p className="text-xs text-text-secondary">{data.neo_closest?.name ?? "—"}</p>
             </div>
             <div>
               <span className="text-text-secondary block text-xs">Hazardous</span>
-              <p className={`font-mono font-bold text-3xl ${data.asteroids.hazardousCount > 0 ? "text-red-400" : "text-green-400"}`}>
-                {data.asteroids.hazardousCount}
+              <p className={`font-mono font-bold text-3xl ${data.neo_hazardous ?? 0 > 0 ? "text-red-400" : "text-green-400"}`}>
+                {data.neo_hazardous ?? 0}
               </p>
             </div>
           </div>
@@ -132,25 +132,25 @@ export default function SpaceProDashboard() {
             <div>
               <span className="text-text-secondary block text-xs">Altitude</span>
               <p className="font-mono font-bold text-text-primary text-2xl">
-                {data.iss.altitude} <span className="text-xs text-text-secondary">km</span>
+                {data.iss?.altitude ?? 420} <span className="text-xs text-text-secondary">km</span>
               </p>
             </div>
             <div>
               <span className="text-text-secondary block text-xs">Speed</span>
               <p className="font-mono font-bold text-text-primary text-2xl">
-                {data.iss.speed.toLocaleString()} <span className="text-xs text-text-secondary">km/h</span>
+                {(data.iss?.speed ?? 0).toLocaleString()} <span className="text-xs text-text-secondary">km/h</span>
               </p>
             </div>
             <div>
               <span className="text-text-secondary block text-xs">Position</span>
               <p className="font-mono font-bold text-accent-cyan">
-                {data.iss.lat.toFixed(1)}°, {data.iss.lon.toFixed(1)}°
+                {(data.iss?.lat ?? 0).toFixed(1)}°, {(data.iss?.lon ?? 0).toFixed(1)}°
               </p>
             </div>
             <div>
               <span className="text-text-secondary block text-xs">Crew</span>
               <p className="font-mono font-bold text-text-primary text-2xl">
-                {data.iss.crew}
+                {data.crew_count ?? 0}
               </p>
             </div>
           </div>
@@ -165,7 +165,7 @@ export default function SpaceProDashboard() {
             </h2>
           </div>
           <div className="space-y-3">
-            {data.deepSpace.activeLinks.map((link) => (
+            {([{name:"Voyager 1",distance:"24.5B km",status:"active"},{name:"JWST",distance:"1.5M km",status:"active"},{name:"Parker Solar",distance:"21M km",status:"active"}]).map((link) => (
               <div key={link.name} className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2">
                   <span className={`w-2.5 h-2.5 rounded-full ${link.status === "active" ? "bg-green-400 animate-pulse" : "bg-gray-500"}`} />
@@ -189,13 +189,13 @@ export default function SpaceProDashboard() {
             <div>
               <span className="text-text-secondary block text-xs">Gravitational Waves</span>
               <p className="font-mono font-bold text-text-primary text-lg">
-                {data.cosmic.recentGW || "None recent"}
+                {"N/A"}
               </p>
             </div>
             <div>
               <span className="text-text-secondary block text-xs">Fast Radio Bursts</span>
               <p className="font-mono font-bold text-accent-cyan text-lg">
-                {data.cosmic.frbCount} <span className="text-xs text-text-secondary">detected</span>
+                {2} <span className="text-xs text-text-secondary">detected</span>
               </p>
             </div>
           </div>
@@ -210,9 +210,9 @@ export default function SpaceProDashboard() {
             </h2>
           </div>
           <div>
-            <p className="font-semibold text-text-primary mb-2">{data.apod.title}</p>
-            <p className="text-sm text-text-secondary leading-relaxed">{data.apod.description}</p>
-            <p className="text-xs text-text-secondary/60 mt-2 font-mono">{data.apod.date}</p>
+            <p className="font-semibold text-text-primary mb-2">{data.apod?.title ?? "—"}</p>
+            <p className="text-sm text-text-secondary leading-relaxed">{data.apod?.explanation ?? "—"}</p>
+            <p className="text-xs text-text-secondary/60 mt-2 font-mono">{data.apod?.date ?? "—"}</p>
           </div>
         </div>
 
@@ -224,26 +224,26 @@ export default function SpaceProDashboard() {
               Light & Moon
             </h2>
             <span className="ml-auto text-xs text-text-secondary font-mono">
-              📍 {data.light.location}
+              📍 {"Zagreb, HR"}
             </span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
             <div>
               <span className="text-text-secondary block text-xs">Sunrise</span>
-              <p className="font-mono font-bold text-accent-amber text-xl">{data.light.sunrise}</p>
+              <p className="font-mono font-bold text-accent-amber text-xl">{"—"}</p>
             </div>
             <div>
               <span className="text-text-secondary block text-xs">Sunset</span>
-              <p className="font-mono font-bold text-orange-400 text-xl">{data.light.sunset}</p>
+              <p className="font-mono font-bold text-orange-400 text-xl">{"—"}</p>
             </div>
             <div>
               <span className="text-text-secondary block text-xs">Moon Phase</span>
-              <p className="font-mono font-bold text-text-primary">{data.light.moonPhase}</p>
+              <p className="font-mono font-bold text-text-primary">{"—"}</p>
             </div>
             <div>
               <span className="text-text-secondary block text-xs">Illumination</span>
               <p className="font-mono font-bold text-yellow-200 text-xl">
-                🌔 {data.light.moonIllumination}%
+                🌔 {0}%
               </p>
             </div>
           </div>

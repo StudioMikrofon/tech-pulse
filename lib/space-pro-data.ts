@@ -5,169 +5,196 @@ import { useState, useEffect } from "react";
 // ---------------------------------------------------------------------------
 
 export interface SolarData {
-  kpIndex: number;
-  flareClass: string;
-  solarWind: number; // km/s
-  auroraChance: "none" | "low" | "moderate" | "high" | "storm";
-}
-
-export interface AsteroidDetail {
-  name: string;
-  distanceLD: number;
-  diameterM: number;
-  speedKmH: number;
-  hazardous: boolean;
-}
-
-export interface AsteroidData {
-  countToday: number;
-  closestDistanceLD: number; // lunar distances
-  closestName: string;
-  hazardousCount: number;
-  asteroidList: AsteroidDetail[];
+  kp_index: number;
+  flare_class: string;
+  solar_wind: number;
+  aurora_chance: "none" | "low" | "moderate" | "high" | "storm";
+  flux: number;
+  updated: string;
 }
 
 export interface ISSData {
-  altitude: number; // km
-  speed: number; // km/h
   lat: number;
   lon: number;
-  crew: number;
+  altitude: number;
+  speed: number;
+  visibility: string;
+  timestamp: number;
 }
 
-export interface DeepSpaceLink {
+export interface NEOData {
+  id: string;
   name: string;
-  distance: string;
-  status: "active" | "idle";
+  distance_km: number;
+  distance_ld: number;
+  speed_kmh: number;
+  diameter_m: number;
+  hazardous: boolean;
+  approach_time: string;
 }
 
-export interface DeepSpaceData {
-  activeLinks: DeepSpaceLink[];
+export interface LaunchData {
+  id: string;
+  name: string;
+  rocket: string;
+  provider: string;
+  pad: string;
+  net: string;
+  t_minus_hours: number | null;
+  status: string;
+  mission: string;
+  image: string;
 }
 
-export interface CosmicData {
-  recentGW: string | null;
-  frbCount: number;
+export interface SpaceAlert {
+  id: string;
+  severity: "blue" | "amber" | "red" | "purple";
+  title: string;
+  summary: string;
+  timestamp: string;
 }
 
 export interface APODData {
   title: string;
-  description: string;
+  explanation: string;
   date: string;
+  url: string;
+  media_type: string;
 }
 
-export interface LightData {
-  sunrise: string;
-  sunset: string;
-  moonPhase: string;
-  moonIllumination: number; // percent
-  location: string;
-}
-
-export interface SpaceProSummary {
-  solar: SolarData;
-  asteroids: AsteroidData;
-  iss: ISSData;
-  deepSpace: DeepSpaceData;
-  cosmic: CosmicData;
-  apod: APODData;
-  light: LightData;
-  lastUpdated: string; // ISO string — fixed for SSR
-  stale: boolean;
+export interface DashboardData {
+  iss: ISSData | null;
+  solar: SolarData | null;
+  crew_count: number | null;
+  next_launch: LaunchData | null;
+  upcoming_launches: LaunchData[];
+  neo_closest: NEOData | null;
+  neo_count: number | null;
+  neo_hazardous: number | null;
+  dsn_active: number | null;
+  alerts: SpaceAlert[];
+  apod?: APODData | null;
+  updated: string;
 }
 
 // ---------------------------------------------------------------------------
-// DSN Ground Stations
+// DSN Ground Stations (statični, koordinate se ne mijenjaju)
 // ---------------------------------------------------------------------------
 
 export const DSN_STATIONS = [
   { name: "Goldstone", lat: 35.4267, lon: -116.89, country: "SAD" },
-  { name: "Madrid", lat: 40.4316, lon: -4.2486, country: "Španjolska" },
-  { name: "Canberra", lat: -35.4014, lon: 148.9819, country: "Australija" },
+  { name: "Madrid",    lat: 40.4316, lon: -4.2486,  country: "Španjolska" },
+  { name: "Canberra",  lat: -35.4014, lon: 148.9819, country: "Australija" },
 ];
 
 // ---------------------------------------------------------------------------
-// Mock data (fixed timestamps to avoid hydration mismatch)
+// Fallback mock (dok se live podaci ne učitaju)
 // ---------------------------------------------------------------------------
 
-export const MOCK_SPACE_DATA: SpaceProSummary = {
-  solar: {
-    kpIndex: 3,
-    flareClass: "C2.1",
-    solarWind: 420,
-    auroraChance: "low",
-  },
-  asteroids: {
-    countToday: 12,
-    closestDistanceLD: 2.3,
-    closestName: "2024 BX1",
-    hazardousCount: 1,
-    asteroidList: [
-      { name: "2024 BX1", distanceLD: 2.3, diameterM: 48, speedKmH: 52400, hazardous: true },
-      { name: "2026 DA14", distanceLD: 5.1, diameterM: 120, speedKmH: 28300, hazardous: false },
-      { name: "2025 YR2", distanceLD: 8.7, diameterM: 35, speedKmH: 41200, hazardous: false },
-      { name: "2026 CK3", distanceLD: 12.4, diameterM: 210, speedKmH: 19800, hazardous: false },
-      { name: "2024 QN1", distanceLD: 3.8, diameterM: 85, speedKmH: 63100, hazardous: true },
-      { name: "2025 FW9", distanceLD: 18.2, diameterM: 15, speedKmH: 35600, hazardous: false },
-    ],
-  },
-  iss: {
-    altitude: 420,
-    speed: 27600,
-    lat: 41.2,
-    lon: -73.8,
-    crew: 7,
-  },
-  deepSpace: {
-    activeLinks: [
-      { name: "Voyager 1", distance: "24.5 B km", status: "active" },
-      { name: "New Horizons", distance: "8.2 B km", status: "active" },
-      { name: "JWST", distance: "1.5 M km", status: "active" },
-    ],
-  },
-  cosmic: {
-    recentGW: null,
-    frbCount: 2,
-  },
-  apod: {
-    title: "The Horsehead Nebula in Infrared",
-    description:
-      "One of the most identifiable nebulae in the sky, the Horsehead Nebula appears dark against a glowing background of interstellar gas.",
-    date: "2026-02-27",
-  },
-  light: {
-    sunrise: "06:42",
-    sunset: "17:38",
-    moonPhase: "Waxing Gibbous",
-    moonIllumination: 78,
-    location: "Zagreb, HR",
-  },
-  lastUpdated: "2026-02-27T12:00:00Z",
-  stale: false,
+export const MOCK_DASHBOARD: DashboardData = {
+  iss: { lat: 0, lon: 0, altitude: 420, speed: 27600, visibility: "daylight", timestamp: 0 },
+  solar: { kp_index: 0, flare_class: "B1.0", solar_wind: 400, aurora_chance: "none", flux: 0, updated: "" },
+  crew_count: 7,
+  next_launch: null,
+  upcoming_launches: [],
+  neo_closest: null,
+  neo_count: 0,
+  neo_hazardous: 0,
+  dsn_active: 0,
+  alerts: [],
+  updated: "",
 };
 
 // ---------------------------------------------------------------------------
-// Data fetcher (swap this when backend is ready)
+// Live data hook — polling /api/space/dashboard
 // ---------------------------------------------------------------------------
 
-export function getSpaceProData(): SpaceProSummary {
-  // TODO: Replace with fetch('/api/space/summary') when API is ready
-  return MOCK_SPACE_DATA;
+export function useSpaceProData(intervalMs = 10000) {
+  const [data, setData] = useState<DashboardData>(MOCK_DASHBOARD);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchData = async () => {
+      try {
+        const res = await fetch("/api/space/dashboard", { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        if (!cancelled && json.ok && json.data) {
+          setData(json.data);
+          setError(null);
+        }
+      } catch (e) {
+        if (!cancelled) setError(String(e));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    fetchData();
+    const timer = setInterval(fetchData, intervalMs);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [intervalMs]);
+
+  return { data, loading, error };
 }
 
 // ---------------------------------------------------------------------------
-// React hook
+// Specialized hooks za pojedine endpointe
 // ---------------------------------------------------------------------------
 
-export function useSpaceProData() {
-  const [data, setData] = useState<SpaceProSummary>(MOCK_SPACE_DATA);
-  const [loading, setLoading] = useState(false);
-
+export function useLiveISS(intervalMs = 5000) {
+  const [data, setData] = useState<ISSData | null>(null);
   useEffect(() => {
-    // In the future, this will fetch from API and set up polling
-    setData(getSpaceProData());
-    setLoading(false);
-  }, []);
+    let cancelled = false;
+    const fetch_ = async () => {
+      try {
+        const res = await fetch("/api/space/iss", { cache: "no-store" });
+        const json = await res.json();
+        if (!cancelled && json.ok) setData(json.data);
+      } catch {}
+    };
+    fetch_();
+    const t = setInterval(fetch_, intervalMs);
+    return () => { cancelled = true; clearInterval(t); };
+  }, [intervalMs]);
+  return data;
+}
 
-  return { data, loading };
+export function useLiveSolar(intervalMs = 60000) {
+  const [data, setData] = useState<SolarData | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const fetch_ = async () => {
+      try {
+        const res = await fetch("/api/space/solar", { cache: "no-store" });
+        const json = await res.json();
+        if (!cancelled && json.ok) setData(json.data);
+      } catch {}
+    };
+    fetch_();
+    const t = setInterval(fetch_, intervalMs);
+    return () => { cancelled = true; clearInterval(t); };
+  }, [intervalMs]);
+  return data;
+}
+
+export function useLiveAlerts() {
+  const [alerts, setAlerts] = useState<SpaceAlert[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    const fetch_ = async () => {
+      try {
+        const res = await fetch("/api/space/alerts", { cache: "no-store" });
+        const json = await res.json();
+        if (!cancelled && json.ok) setAlerts(json.data);
+      } catch {}
+    };
+    fetch_();
+    const t = setInterval(fetch_, 30000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, []);
+  return alerts;
 }

@@ -20,14 +20,24 @@ export const CATEGORY_LABELS: Record<Category, string> = {
   robotics: "Robotics",
 };
 
+export const CATEGORY_LABELS_HR: Record<Category, string> = {
+  ai: "Umjetna inteligencija",
+  gaming: "Gaming",
+  space: "Svemir",
+  technology: "Tehnologija",
+  medicine: "Medicina",
+  society: "Društvo",
+  robotics: "Robotika",
+};
+
 export const CATEGORY_COLORS: Record<Category, string> = {
-  ai: "#A78BFA",
-  gaming: "#F87171",
-  space: "#60A5FA",
-  technology: "#34D399",
-  medicine: "#FB923C",
-  society: "#F472B6",
-  robotics: "#38BDF8",
+  ai: "#00cfff",
+  gaming: "#00b8e6",
+  space: "#00cfff",
+  technology: "#00b8e6",
+  medicine: "#00cfff",
+  society: "#00b8e6",
+  robotics: "#00cfff",
 };
 
 export interface GeoLocation {
@@ -49,6 +59,7 @@ export interface ArticleImage {
 
 export interface Article {
   id: string;
+  dbId?: number;
   title: string;
   category: Category;
   date: string;

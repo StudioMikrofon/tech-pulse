@@ -8,7 +8,8 @@ import {
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useSpaceProData, DSN_STATIONS } from "@/lib/space-pro-data";
-import type { AsteroidDetail } from "@/lib/space-pro-data";
+import SpaceFocusHUD from "./SpaceFocusHUD";
+
 import {
   DSN_GROUND_STATIONS,
   ISS_CREW_NAMES,
@@ -16,12 +17,32 @@ import {
   ISS_INCLINATION,
   PROBES_DATASET,
   NEO_DATASET,
-  RADIO_JOVE_DATA,
   LAUNCH_DATA,
   getTelemetryStub,
 } from "@/lib/space-tracker-data";
 // NEO_DATASET also used for asteroid ID lookup in handleObjectSelect
 import { playSound } from "@/lib/sounds";
+
+// ---------------------------------------------------------------------------
+// Jupiter declination (J2000) — computed client-side
+// ---------------------------------------------------------------------------
+function getJupiterDeclination(): { decDeg: number; raDeg: number; distAU: number } {
+  const J2000 = Date.UTC(2000, 0, 1, 12, 0, 0);
+  const daysSinceJ2000 = (Date.now() - J2000) / 86400000;
+  const T = daysSinceJ2000 / 36525;
+  // Jupiter ecliptic longitude (degrees)
+  const L = ((34.351 + 3034.906 * T) % 360 + 360) % 360;
+  const Lrad = (L * Math.PI) / 180;
+  // Jupiter distance from Sun (AU) — simplified
+  const distAU = 5.203 + 0.048 * Math.cos(Lrad);
+  // Obliquity of ecliptic
+  const eps = ((23.439 - 0.0130042 * T) * Math.PI) / 180;
+  // Equatorial coordinates (simplified, ignoring inclination for visual accuracy)
+  const sinDec = Math.sin(Lrad) * Math.sin(eps);
+  const decRad = Math.asin(sinDec);
+  const raDeg = ((Math.atan2(Math.cos(eps) * Math.sin(Lrad), Math.cos(Lrad)) * 180) / Math.PI + 360) % 360;
+  return { decDeg: (decRad * 180) / Math.PI, raDeg, distAU };
+}
 import type { FocusTarget, JarvisSceneHandle } from "./JarvisScene";
 
 const JarvisScene = dynamic(() => import("./JarvisScene"), { ssr: false });
@@ -31,6 +52,14 @@ const JarvisScene = dynamic(() => import("./JarvisScene"), { ssr: false });
 // ---------------------------------------------------------------------------
 
 type SidebarTab = "iss" | "asteroids" | "dsn" | "launches" | "radiojove";
+
+interface AsteroidDisplay {
+  name: string;
+  distanceLD: number;
+  diameterM: number;
+  speedKmH: number;
+  hazardous: boolean;
+}
 
 interface SpaceTrackerModalProps {
   mode: "iss" | "dsn" | "asteroids" | "overview";
@@ -86,7 +115,7 @@ function BootOverlay({ onDone }: { onDone: () => void }) {
   );
 }
 
-function AsteroidDistanceBar({ asteroid }: { asteroid: AsteroidDetail }) {
+function AsteroidDistanceBar({ asteroid }: { asteroid: {name: string; distanceLD: number; diameterM: number; speedKmH: number; hazardous: boolean} }) {
   const maxLD = 20;
   const pct = Math.min((asteroid.distanceLD / maxLD) * 100, 100);
   return (
@@ -245,14 +274,17 @@ const DSN_MISSIONS: Record<string, string[]> = {
 export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerModalProps) {
   const [activeTab, setActiveTab] = useState<SidebarTab>(mode === "overview" ? "iss" : mode);
   const { data } = useSpaceProData();
+  const dataRef = useRef(data);
+  dataRef.current = data;
   const jarvisRef = useRef<JarvisSceneHandle>(null);
-  const [selectedAsteroid, setSelectedAsteroid] = useState<AsteroidDetail | null>(null);
+  const [selectedAsteroid, setSelectedAsteroid] = useState<AsteroidDisplay | null>(null);
   const [selectedAsteroidId, setSelectedAsteroidId] = useState<string | null>(null);
   const [sceneSize, setSceneSize] = useState({ w: 500, h: 500 });
   const [hudObj, setHudObj] = useState<{ type: string; name: string; data: Record<string, string> } | null>(null);
   const [showTelemetry, setShowTelemetry] = useState(false);
   const [booting, setBooting] = useState(true);
   const [isLandscape, setIsLandscape] = useState(false);
+  const jupiterReturnRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { if (mode !== "overview") setActiveTab(mode); }, [mode]);
 
@@ -316,14 +348,24 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
   // When tab changes, focus camera + play sound
   useEffect(() => {
     if (!open) return;
+    // Cancel any pending Jupiter auto-return
+    if (jupiterReturnRef.current) { clearTimeout(jupiterReturnRef.current); jupiterReturnRef.current = null; }
+
     const t = setTimeout(() => {
       if (activeTab === "iss") focusOn({ type: "iss" });
       else if (activeTab === "dsn") focusOn({ type: "earth" });
       else if (activeTab === "asteroids") focusOn({ type: "earth" });
       else if (activeTab === "launches") focusOn({ type: "earth" });
-      else if (activeTab === "radiojove") focusOn({ type: "planet", id: "planet-jupiter" });
+      else if (activeTab === "radiojove") {
+        focusOn({ type: "planet", id: "planet-jupiter" });
+        // Auto-return to Earth after 5s
+        jupiterReturnRef.current = setTimeout(() => {
+          focusOn({ type: "earth" });
+          jupiterReturnRef.current = null;
+        }, 5000);
+      }
     }, 300);
-    return () => clearTimeout(t);
+    return () => { clearTimeout(t); if (jupiterReturnRef.current) { clearTimeout(jupiterReturnRef.current); jupiterReturnRef.current = null; } };
   }, [activeTab, open, focusOn]);
 
   const handleTabSwitch = useCallback((tab: SidebarTab) => {
@@ -339,16 +381,24 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
   }, [focusOn]);
 
   const handleObjectSelect = useCallback((obj: { type: string; name: string; data: Record<string, string> } | null) => {
-    setHudObj(obj);
-    if (obj && obj.type === "Asteroid") {
-      // Find asteroid id by name from NEO_DATASET
-      const neo = NEO_DATASET.entries.find(n => n.name === obj.name);
-      setSelectedAsteroidId(neo?.id || null);
-    } else {
-      setSelectedAsteroidId(null);
+    if (obj) {
+      // Enrich with live data via ref (no dependency on data to avoid scene rebuilds)
+      const live = dataRef.current;
+      if (obj.type === "ISS" && live.iss) {
+        obj.data["Visina"]   = `${live.iss.altitude} km`;
+        obj.data["Brzina"]   = `${live.iss.speed.toLocaleString()} km/h`;
+        obj.data["Pozicija"] = `${live.iss.lat.toFixed(4)}°, ${live.iss.lon.toFixed(4)}°`;
+      }
+      if (obj.type === "Zvijezda" && live.solar) {
+        obj.data["Kp Index"]      = String(live.solar.kp_index);
+        obj.data["Flare klasa"]   = live.solar.flare_class;
+        obj.data["Sunčev vjetar"] = `${live.solar.solar_wind} km/s`;
+      }
     }
+    setHudObj(obj);
+    setSelectedAsteroidId(null);
     if (obj) playSound("dataStream");
-  }, []);
+  }, []); // empty deps — reads live data via dataRef.current
 
   const handleBootDone = useCallback(() => {
     setBooting(false);
@@ -368,7 +418,7 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
       {/* Content */}
       <div className={`relative z-10 flex w-full h-full ${isLandscape ? "flex-row" : "flex-col sm:flex-row"}`}>
         {/* 3D Scene */}
-        <div className={`relative bg-[#030509] min-w-0 overflow-hidden ${isLandscape ? "w-[65%]" : "flex-1 min-h-[45vh] sm:min-h-0"}`}>
+        <div className={`relative bg-[#030509] min-w-0 overflow-hidden ${isLandscape ? "w-[65%]" : "shrink-0 h-[45dvh] sm:h-auto sm:flex-1"}`}>
           {/* Boot overlay */}
           {booting && <BootOverlay onDone={handleBootDone} />}
 
@@ -387,19 +437,16 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
             <p className="text-[10px] font-mono text-cyan-400/50">// Jarvis Blueprint Mode</p>
           </div>
 
-          {/* HUD overlay — Jarvis terminal style */}
+          {/* Cinematic HUD Focus Mode */}
           {hudObj && hudObj.name && (
-            <div className="absolute bottom-4 left-4 z-10">
-              <JarvisTerminalHUD
-                obj={hudObj}
-                onClose={() => setHudObj(null)}
-                compact={isLandscape || sceneSize.w < 640}
-                onSimToggle={hudObj.type === "Asteroid" && selectedAsteroidId ? () => {
-                  jarvisRef.current?.toggleAsteroidSim(selectedAsteroidId);
-                  playSound("ping");
-                } : undefined}
-              />
-            </div>
+            <SpaceFocusHUD
+              obj={hudObj}
+              dashData={data}
+              onClose={() => {
+                setHudObj(null);
+                playSound("click");
+              }}
+            />
           )}
 
           {/* Instructions */}
@@ -411,13 +458,16 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
             ref={jarvisRef}
             width={sceneSize.w}
             height={sceneSize.h}
-            issData={data.iss}
+            issData={data.iss ?? { lat: 0, lon: 0, altitude: 420, speed: 27600, visibility: "daylight", timestamp: 0 }}
             onSelectObject={handleObjectSelect}
           />
         </div>
 
         {/* Sidebar */}
-        <div className={`shrink-0 bg-space-bg/95 backdrop-blur-xl border-l border-cyan-500/20 overflow-y-auto flex flex-col overscroll-contain ${isLandscape ? "w-[35%] max-w-[300px] max-h-full" : "w-full sm:w-[380px] max-h-[55vh] sm:max-h-full"}`}>
+        <div
+          className={`bg-space-bg/95 backdrop-blur-xl border-l border-cyan-500/20 overflow-y-auto flex flex-col overscroll-contain ${isLandscape ? "shrink-0 w-[35%] max-w-[300px] max-h-full" : "flex-1 min-h-0 w-full sm:w-[380px] sm:shrink-0 sm:flex-none sm:max-h-full"}`}
+          style={{ touchAction: "pan-y", WebkitOverflowScrolling: "touch" } as React.CSSProperties}
+        >
           {/* Tabs */}
           <div className="flex border-b border-cyan-500/20 shrink-0">
             {TABS.map((tab) => {
@@ -440,7 +490,7 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
           </div>
 
           {/* Tab content */}
-          <div className="flex-1 p-4 space-y-3 overflow-y-auto overscroll-contain">
+          <div className="flex-1 p-4 space-y-3 overflow-y-auto overscroll-contain" style={{ touchAction: "pan-y" }}>
 
             {/* ===== ISS ===== */}
             {activeTab === "iss" && (
@@ -459,24 +509,24 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div>
                       <span className="text-text-secondary text-[10px]">Visina</span>
-                      <p className="font-mono font-bold text-text-primary">{data.iss.altitude} km</p>
+                      <p className="font-mono font-bold text-text-primary">{data.iss?.altitude ?? 420} km</p>
                     </div>
                     <div>
                       <span className="text-text-secondary text-[10px]">Brzina</span>
-                      <p className="font-mono font-bold text-text-primary">{data.iss.speed.toLocaleString()} km/h</p>
+                      <p className="font-mono font-bold text-text-primary">{(data.iss?.speed ?? 0).toLocaleString()} km/h</p>
                     </div>
                     <div>
                       <span className="text-text-secondary text-[10px]">Pozicija</span>
-                      <p className="font-mono font-bold text-cyan-400 text-[11px]">{data.iss.lat.toFixed(2)}°, {data.iss.lon.toFixed(2)}°</p>
+                      <p className="font-mono font-bold text-cyan-400 text-[11px]">{(data.iss?.lat ?? 0).toFixed(2)}°, {(data.iss?.lon ?? 0).toFixed(2)}°</p>
                     </div>
                     <div>
                       <span className="text-text-secondary text-[10px]">Period</span>
                       <p className="font-mono font-bold text-text-primary">{ISS_ORBITAL_PERIOD} min</p>
                     </div>
                     <div className="col-span-2">
-                      <span className="text-text-secondary text-[10px]">Posada ({data.iss.crew})</span>
+                      <span className="text-text-secondary text-[10px]">Posada ({data.crew_count ?? 7})</span>
                       <div className="flex flex-wrap gap-1 mt-0.5">
-                        {ISS_CREW_NAMES.slice(0, data.iss.crew).map((name) => (
+                        {ISS_CREW_NAMES.slice(0, data.crew_count ?? 7).map((name) => (
                           <span key={name} className="text-[9px] font-mono px-1 py-0.5 rounded bg-cyan-400/10 text-cyan-400/70">{name}</span>
                         ))}
                       </div>
@@ -494,9 +544,9 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
                   <div className="glass-card p-3 space-y-1.5 !hover:transform-none border-amber-500/20">
                     <h4 className="text-[11px] font-mono text-accent-amber">SLIKA DANA // APOD</h4>
                     <div className="h-px bg-gradient-to-r from-transparent via-amber-400/20 to-transparent" />
-                    <p className="text-[11px] font-mono font-bold text-text-primary">{data.apod.title}</p>
-                    <p className="text-[10px] text-text-secondary leading-relaxed">{data.apod.description}</p>
-                    <p className="text-[9px] font-mono text-text-secondary/40">{data.apod.date} — NASA APOD</p>
+                    <p className="text-[11px] font-mono font-bold text-text-primary">{data.apod?.title ?? "—"}</p>
+                    <p className="text-[10px] text-text-secondary leading-relaxed">{data.apod?.explanation ?? "—"}</p>
+                    <p className="text-[9px] font-mono text-text-secondary/40">{data.apod?.date ?? "—"} — NASA APOD</p>
                   </div>
                 )}
 
@@ -526,10 +576,16 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
                 <div className="glass-card p-3 space-y-2 !hover:transform-none border-cyan-500/20">
                   <div className="flex items-center gap-2 mb-1">
                     <Zap className="w-3 h-3 text-accent-amber" />
-                    <h3 className="text-xs font-semibold text-text-primary font-mono">NEO — {data.asteroids.countToday} danas</h3>
+                    <h3 className="text-xs font-semibold text-text-primary font-mono">NEO — {data.neo_count ?? 0} danas</h3>
                   </div>
                   <div className="space-y-2">
-                    {data.asteroids.asteroidList.map((a) => {
+                    {(data.neo_closest ? [{
+                      name: data.neo_closest.name,
+                      distanceLD: data.neo_closest.distance_ld,
+                      diameterM: data.neo_closest.diameter_m,
+                      speedKmH: data.neo_closest.speed_kmh,
+                      hazardous: data.neo_closest.hazardous,
+                    }] : []).map((a) => {
                       const neoData = NEO_DATASET.entries.find((n) => n.name === a.name);
                       return (
                         <button
@@ -547,10 +603,10 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
                               {a.hazardous && <span className="text-red-400 text-[10px]">!</span>}
                               {a.name}
                             </span>
-                            <span className={`font-mono text-[11px] ${a.hazardous ? "text-red-400" : "text-green-400"}`}>{a.distanceLD} LD</span>
+                            <span className={`font-mono text-[11px] ${a.hazardous ? "text-red-400" : "text-green-400"}`}>{a.distanceLD.toFixed(2)} LD</span>
                           </div>
                           <div className="flex gap-2 text-[10px] text-text-secondary">
-                            <span>{a.diameterM}m</span>
+                            <span>{a.diameterM.toFixed(0)}m</span>
                             <span>{(a.speedKmH / 1000).toFixed(1)}k km/h</span>
                           </div>
                         </button>
@@ -640,45 +696,61 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
                   <div className="flex items-center gap-2 mb-1">
                     <Rocket className="w-3 h-3 text-accent-amber" />
                     <h3 className="text-xs font-semibold text-text-primary font-mono">LANSIRANJA</h3>
-                    <span className="text-[8px] font-mono text-text-secondary ml-auto">Launch Dashboard API</span>
+                    <span className="text-[8px] font-mono ml-auto">
+                      {data.upcoming_launches?.length > 0
+                        ? <span className="text-green-400">● LIVE {data.upcoming_launches.length}</span>
+                        : <span className="text-text-secondary">mock</span>}
+                    </span>
                   </div>
-                  {LAUNCH_DATA.entries.map((launch) => (
-                    <div key={launch.id} className="p-2 rounded-lg border border-white/5 hover:bg-white/3 transition-colors">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[11px] font-mono font-bold text-text-primary">{launch.mission}</span>
-                        <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded-full ${
-                          launch.status === "live" ? "bg-red-400/20 text-red-400" :
-                          launch.status === "upcoming" ? "bg-cyan-400/20 text-cyan-400" :
-                          launch.status === "completed" ? "bg-green-400/20 text-green-400" :
-                          "bg-gray-400/20 text-gray-400"
-                        }`}>
-                          {launch.status.toUpperCase()}
-                        </span>
-                      </div>
-                      <div className="text-[10px] text-text-secondary font-mono space-y-0.5">
-                        <p>{launch.vehicle} — {launch.provider}</p>
-                        <p>{launch.site}</p>
-                        <p>T-0: {new Date(launch.launchTime).toLocaleString()}</p>
-                      </div>
-                      {launch.telemetry && (
-                        <div className="mt-1.5 pt-1.5 border-t border-white/5 grid grid-cols-3 gap-1.5 text-[10px]">
-                          <div><span className="text-text-secondary">Alt</span><p className="font-mono font-bold text-text-primary">{launch.telemetry.altitude} km</p></div>
-                          <div><span className="text-text-secondary">Vel</span><p className="font-mono font-bold text-text-primary">{launch.telemetry.velocity.toLocaleString()} km/h</p></div>
-                          <div><span className="text-text-secondary">G</span><p className="font-mono font-bold text-text-primary">{launch.telemetry.acceleration.toFixed(1)}</p></div>
+                  {data.upcoming_launches?.length > 0
+                    ? data.upcoming_launches.map((launch, idx) => {
+                        const tMinus = launch.t_minus_hours;
+                        const tStr = tMinus != null
+                          ? (tMinus < 0 ? `T+${Math.abs(tMinus).toFixed(1)}h` : `T-${tMinus.toFixed(1)}h`)
+                          : "—";
+                        const isFirst = idx === 0;
+                        return (
+                          <div key={launch.id} className={`p-2 rounded-lg border ${isFirst ? "border-amber-500/30 bg-amber-500/5" : "border-white/5"}`}>
+                            {isFirst && launch.image && (
+                              <div className="w-full h-14 rounded-md overflow-hidden mb-2">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={launch.image} alt={launch.name} className="w-full h-full object-cover" />
+                              </div>
+                            )}
+                            <div className="flex items-start justify-between gap-1 mb-0.5">
+                              <span className="text-[10px] font-mono font-bold text-text-primary leading-tight">{launch.name}</span>
+                              <span className={`text-[8px] font-mono px-1 py-0.5 rounded-full shrink-0 ${
+                                launch.status.includes("Go") || launch.status.includes("Successful") ? "bg-green-400/20 text-green-400" :
+                                launch.status.includes("Hold") ? "bg-red-400/20 text-red-400" :
+                                "bg-gray-400/20 text-gray-400"
+                              }`}>{launch.status.slice(0, 10)}</span>
+                            </div>
+                            <div className="text-[9px] text-text-secondary font-mono space-y-0.5">
+                              <p className={isFirst ? "text-amber-400/80" : ""}>{launch.rocket} — {launch.provider}</p>
+                              <div className="flex items-center justify-between">
+                                <span>{launch.net ? new Date(launch.net).toLocaleString("hr-HR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}</span>
+                                <span className={`font-bold ${tMinus != null && tMinus < 24 ? "text-amber-400" : "text-cyan-400/70"}`}>{tStr}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    : LAUNCH_DATA.entries.map((launch) => (
+                        <div key={launch.id} className="p-2 rounded-lg border border-white/5">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] font-mono font-bold text-text-primary">{launch.mission}</span>
+                            <span className="text-[8px] font-mono px-1 py-0.5 rounded-full bg-gray-400/20 text-gray-400">{launch.status.toUpperCase()}</span>
+                          </div>
+                          <div className="text-[9px] text-text-secondary font-mono">
+                            <p>{launch.vehicle} — {launch.provider}</p>
+                            <p>{new Date(launch.launchTime).toLocaleString()}</p>
+                          </div>
                         </div>
-                      )}
-                      <div className="mt-1.5 flex flex-wrap gap-1">
-                        {launch.events.map((evt) => (
-                          <span key={evt.label} className="text-[8px] font-mono px-1 py-0.5 rounded bg-white/5 text-text-secondary">
-                            T+{evt.time}s {evt.label}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
+                      ))
+                  }
                 </div>
                 <div className="text-[9px] font-mono text-text-secondary/40 text-center">
-                  WebSocket: api.launchdashboard.space — live telemetry during launches
+                  The Space Devs API — api.thespacedevs.com
                 </div>
               </>
             )}
@@ -695,37 +767,80 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
                   <p className="text-[10px] text-text-secondary leading-relaxed">
                     Radio emisije Jupitera, Sunca i galaksije na 14-30 MHz. Detekcije od globalnih stanica.
                   </p>
-                  {RADIO_JOVE_DATA.entries.map((entry) => (
-                    <div key={entry.id} className="p-2 rounded-lg border border-white/5 hover:bg-white/3 transition-colors">
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-[11px] font-mono font-bold text-text-primary flex items-center gap-1.5">
-                          <span className={`w-1.5 h-1.5 rounded-full ${
-                            entry.source === "Jupiter" ? "bg-amber-400" :
-                            entry.source === "Sun" ? "bg-yellow-400" : "bg-purple-400"
-                          }`} />
-                          {entry.source}
-                        </span>
-                        <span className="text-[9px] font-mono text-cyan-400">{entry.frequency}</span>
-                      </div>
-                      <div className="text-[10px] text-text-secondary font-mono">
-                        <p>{entry.type}</p>
-                        <div className="flex justify-between mt-0.5">
-                          <span>Intenzitet: <span className={`font-bold ${entry.intensity > 70 ? "text-red-400" : entry.intensity > 40 ? "text-amber-400" : "text-green-400"}`}>{entry.intensity} dB</span></span>
-                          <span>{new Date(entry.timestamp).toLocaleTimeString()}</span>
+                  {/* Jupiter position computed from J2000 */}
+                  {(() => {
+                    const jup = getJupiterDeclination();
+                    const decSign = jup.decDeg >= 0 ? "+" : "";
+                    const raH = Math.floor(jup.raDeg / 15);
+                    const raM = Math.floor(((jup.raDeg / 15) % 1) * 60);
+                    // Io orbital period 1.769 days — current Io longitude (rough)
+                    const J2000 = Date.UTC(2000, 0, 1, 12, 0, 0);
+                    const daysSinceJ2000 = (Date.now() - J2000) / 86400000;
+                    const ioLon = ((daysSinceJ2000 / 1.769) * 360) % 360;
+                    // Burst windows at Io-A (~90°), Io-B (~200°), Io-C (~300°), Io-D (~150°)
+                    const ioPhaseDeg: Record<string, number> = { "Io-A": 90, "Io-B": 200, "Io-C": 300, "Io-D": 150 };
+                    const getIoStatus = (target: number) => {
+                      const diff = Math.abs(((ioLon - target + 540) % 360) - 180);
+                      if (diff < 25) return { label: "ACTIVE", color: "text-green-400" };
+                      if (diff < 60) return { label: "SOON", color: "text-amber-400" };
+                      return { label: `${Math.round(diff)}°`, color: "text-text-secondary/60" };
+                    };
+                    return (
+                      <div className="p-2 rounded-lg border border-purple-500/20 bg-purple-500/5 space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+                          <span className="text-[11px] font-mono font-bold text-text-primary">Jupiter — trenutna pozicija</span>
                         </div>
-                        <p className="text-[9px] text-text-secondary/50">{entry.station}</p>
+                        <div className="grid grid-cols-3 gap-1 text-[10px] font-mono">
+                          <div className="col-span-1 bg-white/5 rounded p-1.5 text-center">
+                            <p className="text-text-secondary text-[8px]">Deklinacija</p>
+                            <p className="text-amber-400 font-bold">{decSign}{jup.decDeg.toFixed(2)}°</p>
+                          </div>
+                          <div className="col-span-1 bg-white/5 rounded p-1.5 text-center">
+                            <p className="text-text-secondary text-[8px]">RA (J2000)</p>
+                            <p className="text-amber-400 font-bold">{raH}h {raM}m</p>
+                          </div>
+                          <div className="col-span-1 bg-white/5 rounded p-1.5 text-center">
+                            <p className="text-text-secondary text-[8px]">Dist.</p>
+                            <p className="text-amber-400 font-bold">{jup.distAU.toFixed(2)} AU</p>
+                          </div>
+                        </div>
+                        <div className="text-[10px] text-text-secondary font-mono">
+                          <p>Io faze — optimalan radio prijem:</p>
+                        </div>
+                        <div className="grid grid-cols-4 gap-1">
+                          {Object.entries(ioPhaseDeg).map(([phase, target]) => {
+                            const s = getIoStatus(target);
+                            return (
+                              <div key={phase} className="text-center p-1 rounded bg-white/5">
+                                <p className="text-[8px] font-mono text-text-secondary">{phase}</p>
+                                <p className={`text-[9px] font-mono font-bold ${s.color}`}>{s.label}</p>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                      <div className="mt-1 h-1 bg-white/5 rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all"
-                          style={{
-                            width: `${entry.intensity}%`,
-                            background: entry.intensity > 70 ? "#EF4444" : entry.intensity > 40 ? "#FFCF6E" : "#34D399",
-                          }}
-                        />
-                      </div>
+                    );
+                  })()}
+                  <div className="p-2 rounded-lg border border-white/5">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="w-2 h-2 rounded-full bg-yellow-400 shrink-0" />
+                      <span className="text-[11px] font-mono font-bold text-text-primary">Sunce — radio burstovi</span>
+                      {data.solar && (
+                        <span className={`text-[9px] font-mono ml-auto ${
+                          data.solar.kp_index > 5 ? "text-red-400" : data.solar.kp_index > 2 ? "text-amber-400" : "text-green-400"
+                        }`}>Kp {data.solar.kp_index.toFixed(1)}</span>
+                      )}
                     </div>
-                  ))}
+                    <p className="text-[10px] text-text-secondary font-mono">
+                      {data.solar?.flare_class
+                        ? `Aktivna klasa: ${data.solar.flare_class} — Solarni vjetar: ${data.solar.solar_wind} km/s`
+                        : "Nema live podataka o burstovima"}
+                    </p>
+                  </div>
+                  <p className="text-[9px] font-mono text-text-secondary/40 text-center pt-1">
+                    Live API za JOVE detekcije nije javno dostupan — pratite live stream ispod
+                  </p>
                 </div>
 
                 {/* JOVE Live Stream — link (embedding disabled by channel) */}

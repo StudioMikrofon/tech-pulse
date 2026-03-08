@@ -1,0 +1,29 @@
+---
+id: "2026-03-07-openai-ov-codex-security-ai-koji-trazi-rupe-u-kodu"
+db_id: 126
+title: "OpenAI-ov Codex Security: AI koji traži rupe u kodu (i već ih je našao)"
+category: "space"
+date: "2026-03-07T12:00:00Z"
+excerpt: "Kad bi softver bio grad, većina ga održava s ljestvama, čekićem i nadom da će se drveni stubovi ne slomiti pod pritiskom."
+source:
+  name: "The Decoder"
+  url: "https://the-decoder.com/openai-launches-codex-security-an-ai-agent-designed-to-detect-vulnerabilities-in-software-projects/"
+image:
+  url: "/images/articles/openai-ov-codex-security-ai-koji-trazi-rupe-u-kodu/main.jpg"
+  alt: "OpenAI-ov Codex Security: AI koji traži rupe u kodu (i već ih je našao)"
+subtitle: "Koliko je sigurno povjeriti sigurnost… algoritmu?"
+tags: ["future-pulse", "automated", "space"]
+geo:
+  name: "San Francisco, United States"
+  lat: 37.7749
+  lon: -122.4194
+  countryCode: "US"
+featured: false
+approved: true
+---
+
+Kad bi softver bio grad, većina ga održava s ljestvama, čekićem i nadom da će se drveni stubovi ne slomiti pod pritiskom. OpenAI je upravo predstavio [Codex Security](https://the-decoder.com/openai-launches-codex-security-an-ai-agent-designed-to-detect-vulnerabilities-in-software-projects/), ai-agenta čija je jedina svrha – pronaći slabe točke u kodu prije nego ih iskoriste drugi. i ne radi se o teorijskom konceptu: alat je već otkrio ranjivosti u [OpenSSH-u](https://www.openssh.com/) i [Chromiumu](https://www.chromium.org/), dva projekta koja se smatraju zlatnim standardom sigurnosti. Da, isti oni koje korisnici slepo ažuriraju svaki tjedan vjerujući da su „zaštićeni“. Problem s modernim razvojem softvera nije nedostatak alata, već njihova prekomjerna obilnost. Statistički programeri provode [42% vremena](https://www.stripe.com/reports/developer-coefficient) debugirajući umjesto da pišu novi kod, a sigurnosne provjere često su posao za poslije—ako se uopće dogode. Codex Security obećava automatizirati taj dio, ali pitanje je: koliko je pametno prepustiti ai-u da traži greške koje sam ai možda i stvara? OpenAI-ov originalni [Codex](https://openai.com/blog/openai-codex/) (na kojem je ovaj alat vjerojatno građen) već je pokazao da može generirati funkcionalan kod—ali i kod pun logičkih propusta, ako mu se ne postavi prava pitanja. Sada isti tim nudi rješenje za probleme koje je, ironično, njihov vlastiti proizvod moguće i pogoršao. Da stvari budu gore, detalji o tome kako Codex Security radi ostaju mutni. Nema podataka o podržanim jezicima (Python? C++? COBOL?), licenciranju, ni kada će alat biti dostupan širem krugu—osim „uskoro“, što u tech svijetu obično znači „kad nam se prohte“. Jedino što znamo je da je već pronašao rupe u alatu koji milijuni koriste svaki dan. To ili govori o njegovoj učinkovitosti, ili o tome koliko smo zapravo svi ranjivi.
+
+<ArticleBreak />
+
+OpenAI ovdje ne prodaje samo proizvod, već iluziju kontrole. Sigurnosne rupe u softveru nisu kao bugovi koje možete ignorirati dok se sustav ne sruši—one su tihe, eksploatabilne i često prodane na crnom tržištu prije nego ih ikad primijetite. Kada alat kao Codex Security kaže da je pronašao problem u Chromiumu, to ne znači da je Google to propustio iz neznanja, već da je možda svjesno odgodio popravak zbog prioriteta. Ai ovdje ne rješava korupciju procesa, već ga samo ubrzava. A što ako alat počne označavati lažne pozitive, ili—još gore—lažne negative? Tko će provjeravati provjeravača? Usput, valja podsjetiti da OpenAI nije nevina stranka u ovoj priči. Njegovi modeli već godinama [obučavaju se na javnom kodu](https://github.blog/2023-06-29-openai-and-github-partnership/) (često bez eksplicitne dozvole autora), a sada isti taj kod skeniraju u potrazi za ranjivostima. To nije nužno loše—ali je hipokritsko pretpostaviti da će sve tvrtke koje koriste Codex Security dijeliti svoje nalaze s zajednicom. Vjerojatnije je da će ih koristiti kao [„zero-day“ oružje](https://en.wikipedia.org/wiki/Zero-day_exploit) u pregovorima s konkurencijom. Jer, da budemo pošteni: ako ste tvrtka koja plaća za ovaj alat, zašto biste objavili ranjivost kada je možete iskoristiti? Najironičnije od svega je što Codex Security možda i pomaže hackerima. Svaki detalj o tome kako alat radi postaje potencijalni vodič za one koji žele zaobići zaštitu.

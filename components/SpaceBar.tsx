@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MOCK_SPACE_DATA } from "@/lib/space-pro-data";
+import { useSpaceProData } from "@/lib/space-pro-data";
 import SpaceProDrawer from "./SpaceProDrawer";
 
 function KpColor(kp: number): string {
@@ -12,7 +12,13 @@ function KpColor(kp: number): string {
 
 export default function SpaceBar() {
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const d = MOCK_SPACE_DATA;
+  const { data } = useSpaceProData(30000);
+
+  const kp = data.solar?.kp_index ?? 0;
+  const flare = data.solar?.flare_class ?? "—";
+  const neos = data.neo_count ?? 0;
+  const issAlt = data.iss?.altitude ?? 420;
+  const crew = data.crew_count ?? 0;
 
   return (
     <>
@@ -26,8 +32,8 @@ export default function SpaceBar() {
             title="Kp indeks — geomagnetska aktivnost (0-9). Viši = jača magnetska oluja."
           >
             <span className="text-text-secondary">Kp</span>
-            <span className="font-bold" style={{ color: KpColor(d.solar.kpIndex) }}>
-              {d.solar.kpIndex}
+            <span className="font-bold" style={{ color: KpColor(kp) }}>
+              {kp}
             </span>
           </div>
           <div className="w-px h-4 bg-white/10" />
@@ -36,9 +42,7 @@ export default function SpaceBar() {
             title="Solarna baklja — klasa trenutne erupcije na Suncu (A/B/C/M/X)."
           >
             <span className="text-text-secondary">Baklja</span>
-            <span className="font-bold text-accent-amber">
-              {d.solar.flareClass}
-            </span>
+            <span className="font-bold text-accent-amber">{flare}</span>
           </div>
           <div className="w-px h-4 bg-white/10" />
           <div
@@ -46,9 +50,7 @@ export default function SpaceBar() {
             title="Objekti blizu Zemlje — asteroidi praćeni danas od NASA-e."
           >
             <span className="text-text-secondary">NEOs</span>
-            <span className="font-bold text-text-primary">
-              {d.asteroids.countToday}
-            </span>
+            <span className="font-bold text-text-primary">{neos}</span>
           </div>
           <div className="w-px h-4 bg-white/10" />
           <div
@@ -56,19 +58,15 @@ export default function SpaceBar() {
             title="ISS — Međunarodna svemirska postaja, trenutna visina orbite."
           >
             <span className="text-text-secondary">ISS</span>
-            <span className="font-bold text-accent-cyan">
-              {d.iss.altitude} km
-            </span>
+            <span className="font-bold text-accent-cyan">{issAlt} km</span>
           </div>
           <div className="w-px h-4 bg-white/10" />
           <div
             className="flex items-center gap-1.5 whitespace-nowrap"
-            title="Mjesec — postotak osvijetljenosti Mjeseca trenutno."
+            title="Broj ljudi trenutno u svemiru."
           >
-            <span className="text-text-secondary">Mjesec</span>
-            <span className="font-bold text-yellow-200">
-              🌔 {d.light.moonIllumination}%
-            </span>
+            <span className="text-text-secondary">Ljudi</span>
+            <span className="font-bold text-yellow-200">👨‍🚀 {crew}</span>
           </div>
         </div>
       </div>

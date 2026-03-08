@@ -1,0 +1,31 @@
+---
+id: "2026-03-07-tko-jos-koristi-admin-1234-iran-i-rusija-znaju"
+title: "Tko još koristi ‘admin:1234’? Iran i Rusija znaju"
+category: "technology"
+date: "2026-03-07T12:00:00Z"
+excerpt: "Svaka generacija ima svoj mit o sigurnosti: osamdesetih su to bili virusi na disketama, devedesetih ‘hakeri’ koji su provaljivali u Pentagone iz podruma, a danas je to uvjerenje da su naše kućne kamere ‘samo za gledanje’."
+source:
+  name: "Ars Technica"
+  url: "https://arstechnica.com/security/2026/03/from-iran-to-ukraine-everyones-trying-to-hack-security-cameras/"
+image:
+  url: "/images/articles/tko-jos-koristi-admin-1234-iran-i-rusija-znaju/main.jpg"
+  alt: "Tko još koristi ‘admin:1234’? Iran i Rusija znaju"
+subtitle: "500.000 kamera još uvijek čeka svoj ‘update’ – ali nije riječ o verziji firmwarea"
+subtitleImage:
+  url: "/images/articles/tko-jos-koristi-admin-1234-iran-i-rusija-znaju/subtitle.jpg"
+  alt: "500.000 kamera još uvijek čeka svoj ‘update’ – ali nije riječ o verziji firmwarea"
+tags: ["future-pulse", "automated", "technology"]
+geo:
+  name: "Boston, Massachusetts, USA"
+  lat: 42.3601
+  lon: -71.0589
+  countryCode: "US"
+featured: false
+approved: true
+---
+
+Svaka generacija ima svoj mit o sigurnosti: osamdesetih su to bili virusi na disketama, devedesetih ‘hakeri’ koji su provaljivali u Pentagon iz podruma, a danas je to uvjerenje da su naše kućne kamere ‘samo za gledanje’. No, istraživanje tvrtke Recorded Future, koja prati aktivnosti iranskih APT grupa, kao što je MuddyWater (ili Seedworm, ako vam je draže tajanstvenije ime), otkriva nešto sasvim drugo. Ti isti uređaji koje koristite da vidite tko vam krade pakete s trijema ili prati je li mačka već pojela ručak, zapravo su meta za državne cirkuse koji ih pretvaraju u botnete, proxy mreže ili – što je još zabavnije – izvidničke točke za špijunažu. Ne radi se o nekoj vrhunskoj tehnologiji; napadači jednostavno iskorištavaju ono što većina korisnika i proizvođača ignorira: defaultne lozinke (‘admin:admin’ zvuči poznato?), neažurirani firmware i ranjivosti koje su CISA upozoravala još davne 2021. godine. Najveći hit među napadačima je Peekaboo ranjivost (CVE-2021-32945), koja pogađa NUUO NVRMini2 uređaje. Zvuči egzotično? Zapravo je riječ o sasvim običnim digitalnim video rekorderima koje možete kupiti na AliExpressu za par stotina kuna. Problem je što ni proizvođači ni korisnici ne mare dovoljno za to da ih ažuriraju ili makar promijene lozinku. Istraživači iz Shadowserver fondacije otkrili su da je preko 80.000 takvih uređaja izloženo na internetu, čekajući samo da ih netko ‘posjeti’. A kad kažemo ‘netko’, mislimo na iranske ili ruske hakerske grupe koje ih ne koriste za voajerizam, već za ozbiljnije stvari – poput koordiniranja DDoS napada ili skrivanja svoje prave lokacije dok napadaju ciljeve u Ukrajini ili na Bliskom istoku. Hikvision i Dahua, dva giganta iz Kine, često su u središtu ovih priča. Njihovi proizvodi redovito završavaju na CISA-inim listama ranjivosti, a razlog je jednostavan: proizvođači često ostavljaju backdoor pristupe ili defaultne lozinke koje korisnici nikad ne mijenjaju. Ars Technica je izvijestila da su iranski napadači posebno voleli kamere s FTP serverima koji su bili pogrešno konfigurirani, što im je omogućilo da lako preuzmu kontrolu. A ako mislite da su to samo ‘njihovi’ problemi, pogledajte koliko hrvatskih kućanstava i poduzeća još uvijek koristi iste modele – i iste lozinke.
+
+<ArticleBreak />
+
+Ukrajina je, kako se moglo i očekivati, bila posebno atraktivna meta za ruske hakerske kampanje. No, za razliku od iranskih kolega koji su se fokusirali na NVR i DVR uređaje, Rusi su preferirali ‘glupe’ greške: FTP servere koji su bili otvoreni svima, kamere koje su bile dostupne bez ikakve autentifikacije ili uređaje koji su koristili lozinke poput ‘password’ ili ‘123456’. Shodan, tražilica za internetski povezane uređaje, još uvijek ima preko pola milijuna takvih uređaja indeksiranih, što je pravi buffet za svakoga tko ima malo vremena i zlonamjernih namjera. I dok se može reći da su ove kamere ‘glupe’, a ne ‘pametne’, realnost je da one ne trebaju biti pametne da bi bile opasne – dovoljno je da su spojene na internet. CISA je već godinama izdavala upozorenja o kritičnim ranjivostima u kamerama Lorex, Swann i Annke, ali kao i s mnogim drugim sigurnosnim savjetima, većina korisnika ih ignorira. Zašto? Zato što je ‘to samo kamera’. No, kad se ta ‘samo kamera’ koristi kao dio botneta za napad na kritičnu infrastrukturu ili kao platforma za špijunažu, onda više nije riječ o ‘samo kameri’, već o potencijalnom vektoru napada. Istraživači su otkrili da su neki od kompromitiranih uređaja kasnije korišteni za rutiranje malicioznog prometa, širenje ransomwarea ili čak za praćenje kretanja ljudi u zonama sukoba.

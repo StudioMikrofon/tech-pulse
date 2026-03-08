@@ -6,9 +6,10 @@ import type { Article } from "@/lib/types";
 interface ArticleGridProps {
   articles: Article[];
   onGeoClick?: (article: Article) => void;
+  basePath?: string;
 }
 
-export default function ArticleGrid({ articles, onGeoClick }: ArticleGridProps) {
+export default function ArticleGrid({ articles, onGeoClick, basePath }: ArticleGridProps) {
   if (articles.length === 0) {
     return (
       <div className="text-center py-16">
@@ -30,6 +31,7 @@ export default function ArticleGrid({ articles, onGeoClick }: ArticleGridProps) 
           <ArticleCard
             article={article}
             onGeoClick={onGeoClick}
+            basePath={basePath}
           />
         </div>
       ))}

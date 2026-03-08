@@ -9,6 +9,8 @@ import SpaceStage from "@/components/SpaceStage";
 import KonamiCode from "@/components/KonamiCode";
 import Ticker from "@/components/Ticker";
 import SpaceProSidebar from "@/components/SpaceProSidebar";
+import AgentPanel from "@/components/AgentPanel";
+import AmbientSound from "@/components/AmbientSound";
 import { getAllArticles } from "@/lib/content";
 
 const orbitron = Orbitron({
@@ -61,16 +63,30 @@ export default function RootLayout({
         <TerminalBoot />
         <SpaceStage />
         <PageTransition />
+        <AmbientSound />
         <KonamiCode />
         <div className="relative z-10 nebula-bg min-h-screen flex flex-col">
           <Header />
           <div className="flex flex-1">
-            <main className="flex-1 lg:mr-[320px]">{children}</main>
+            <main className="flex-1 lg:mr-[320px] pb-10">{children}</main>
             <SpaceProSidebar />
           </div>
           <Footer />
         </div>
         <Ticker articles={articles} compact />
+        {process.env.NEXT_PUBLIC_AGENT_PANEL === "true" && (
+          <>
+            <AgentPanel />
+            <a
+              href="/review"
+              title="Review Panel"
+              className="fixed bottom-6 right-[4.5rem] z-[9998] h-12 px-3 rounded-full bg-space-bg border border-white/15 text-text-secondary hover:text-accent-cyan hover:border-accent-cyan/40 text-xs font-mono flex items-center gap-1.5 transition-all"
+              style={{ boxShadow: "0 0 12px rgba(0,0,0,0.4)" }}
+            >
+              ⊞ Review
+            </a>
+          </>
+        )}
       </body>
     </html>
   );

@@ -14,6 +14,7 @@ function parseMdxFile(filePath: string): Article | null {
 
     return {
       id: data.id,
+      dbId: data.db_id ? Number(data.db_id) : undefined,
       title: data.title,
       category: data.category as Category,
       date: data.date,
@@ -78,8 +79,76 @@ export function getArticleBySlug(
   return parseMdxFile(filePath);
 }
 
+// ── Croatian (HR) versions ────────────────────────────────────
+
+export function getArticleBySlugHr(
+  category: string,
+  id: string
+): Article | null {
+  // Try HR file: content/{category}/{id}/index.hr.mdx
+  const hrPath = path.join(CONTENT_DIR, category, id, "index.hr.mdx");
+  if (fs.existsSync(hrPath)) return parseMdxFile(hrPath);
+  // Fallback to EN version
+  return getArticleBySlug(category, id);
+}
+
+export function getAllArticlesHr(): Article[] {
+  const articles: Article[] = [];
+
+  for (const category of CATEGORIES) {
+    const categoryDir = path.join(CONTENT_DIR, category);
+    if (!fs.existsSync(categoryDir)) continue;
+
+    const entries = fs.readdirSync(categoryDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const hrPath = path.join(categoryDir, entry.name, "index.hr.mdx");
+      const enPath = path.join(categoryDir, entry.name, "index.mdx");
+      // Prefer HR file, fall back to EN
+      const filePath = fs.existsSync(hrPath) ? hrPath : (fs.existsSync(enPath) ? enPath : null);
+      if (!filePath) continue;
+      const article = parseMdxFile(filePath);
+      if (article) articles.push(article);
+    }
+  }
+
+  return articles.sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
+}
+
 export function getArticlesByCategory(category: Category): Article[] {
   return getAllArticles().filter((a) => a.category === category);
+}
+
+export function getArticlesByCategoryHr(category: Category): Article[] {
+  return getAllArticlesHr().filter((a) => a.category === category);
+}
+
+export function getRelatedArticles(
+  currentId: string,
+  category: Category,
+  tags: string[],
+  limit = 4
+): Article[] {
+  const all = getAllArticles();
+  const tagSet = new Set(tags);
+
+  const scored = all
+    .filter((a) => a.id !== currentId)
+    .map((a) => {
+      const sameCategory = a.category === category ? 2 : 0;
+      const sharedTags = a.tags.filter((t) => tagSet.has(t)).length;
+      return { article: a, score: sameCategory + sharedTags };
+    })
+    .filter((x) => x.score > 0)
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        new Date(b.article.date).getTime() - new Date(a.article.date).getTime()
+    );
+
+  return scored.slice(0, limit).map((x) => x.article);
 }
 
 export function getFeaturedArticle(): Article | null {

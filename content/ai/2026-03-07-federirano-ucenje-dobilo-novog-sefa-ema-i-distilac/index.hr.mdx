@@ -1,0 +1,32 @@
+---
+id: "2026-03-07-federirano-ucenje-dobilo-novog-sefa-ema-i-distilac"
+title: "Federirano učenje dobilo novog šefa: EMA i distilacija znanja"
+lang: "hr"
+category: "ai"
+date: "2026-03-07T12:00:00Z"
+excerpt: "Federirano učenje (FL) već godinama obećava privatnost, decentralizaciju i efikasnost, ali u praksi često izgleda kao skupi eksperiment s dijeteškim biciklom bez pedala: sve je tu – osim što ne vozi."
+source:
+  name: "arXiv ML"
+  url: "https://arxiv.org/abs/2603.04422"
+image:
+  url: "/images/articles/federirano-ucenje-dobilo-novog-sefa-ema-i-distilac/main.jpg"
+  alt: "Federirano učenje dobilo novog šefa: EMA i distilacija znanja"
+subtitle: "7 razloga zašto vaše poduzeće još uvijek ne koristi FL – iako bi trebalo"
+subtitleImage:
+  url: "/images/articles/federirano-ucenje-dobilo-novog-sefa-ema-i-distilac/subtitle.jpg"
+  alt: "7 razloga zašto vaše poduzeće još uvijek ne koristi FL – iako bi trebalo"
+tags: ["future-pulse", "automated", "ai"]
+geo:
+  name: "Menlo Park, CA"
+  lat: 37.4529
+  lon: -122.1817
+  countryCode: "US"
+featured: false
+approved: true
+---
+
+Federirano učenje (FL) već godinama obećava privatnost, decentralizaciju i efikasnost, ali u praksi često izgleda kao skupi eksperiment s dijeteškim biciklom bez pedala: sve je tu – osim što ne vozi. Novi rad s arXiv-a, objavljen 7. ožujka 2026., predlaže **FedEMA-Distill**, metodu koja kombinira eksponencijalno klizeću prosječnu vrijednost (EMA) globalnog modela s *ensemble* distilacijom znanja iz predikcija klijenata. Zvuči kao recept za uspjeh, ali je li to dovoljno da se riješe tri kronična problema FL-a: **klijentski drift**, sporost konvergencije i komunikacijski overhead koji bi posramio čak i BitTorrent u vršnom prometu? Problem s FL-om nije u teoriji, već u tome što klijenti – tj. uređaji ili organizacije koje sudjeluju – rijetko imaju podatkovne skupove koji su međusobno usporedivi. Ako jedan klijent trenira model na podacima o mačkama, a drugi na podacima o burzovnim trendovima, rezultat je kaos: globalni model postaje sve manje *globalan*, a sve više zbunjen. FedEMA-Distill pokušava to riješiti tako što server ne prima samo ažurirane težine modela od klijenata, već i njihove **predikcije** na malom, javno dostupnom *proxy* skupu podataka. Te predikcije se zatim destiliraju u znanje koje se kombinira s EMA verzijom globalnog modela. Drugim riječima, umjesto da se oslanja isključivo na to što klijenti *tvrd*e da su naučili, server provjerava što zapravo *znaju* – barem na kontroliranom uzorku. Ali ovdje nastaje prvo pitanje: koliko je ta *proxy* baza podataka stvarno reprezentativna? Ako je premala ili pristrana, cijeli postupak postaje kao mjerenje temperature pacijenta kroz prozor – možda će biti točno, ali vjerojatnije neće. Autori tvrde da je njihova metoda otpornija na **adverzaralne klijente** (one koji namjerno šalju pogrešne podatke), ali koliko god distilacija znanja bila elegantna, ostaje problem: ako je većina klijenata nepoželjna, ni najpametniji server neće moći spasiti model. To je kao pokušaj filtriranja deepfakeova ručnim pregledom – teorijski moguće, praktično beskorisno.
+
+<ArticleBreak />
+
+Drugi ključni element FedEMA-Distill-a je upravo ta EMA komponenta, koja nije nova – koristimo je već godina u optimizaciji modela kao što je AdamW ili u generativnim modelima poput Stable Diffusiona. Međutim, u kontekstu FL-a, EMA dobiva ulogu *stabilizatora*: umjesto da globalni model skače iz jedne ekstremne verzije u drugu, on postupno apsorbira promjene, smanjujući utjecaj iznenadnih odstupanja. To je korisno, ali i ovdje ima zamki. EMA uvijek zaostaje za stvarnim stanjem – to je njena priroda – pa ako klijenti brzo evoluiraju, globalni model riskira da postane *prekasno pametan*. Zanimljivo je da FedEMA-Distill ne zahtijeva od klijenata nikakve dodatne izračune osim uobičajenog treniranja i slanja predikcija. To je važno, jer jedan od razloga zašto FL još uvijek nije mainstream je upravo to što klijenti često nemaju resurse za složene postupke. Međutim, i ovdje se nameće pitanje: ako je sve što klijenti šalju samo predikcije na malom skupu, koliko je to dovoljno da se stvori robusan globalni model? Autori tvrde da je njihova metoda efikasnija od klasičnih pristupa poput FedAvg, ali je teško povjerovati da će *ensemble* distilacija na minijaturnom *proxy* skupu riješiti problem heterogenosti koji muči FL već godinama. Na kraju, FedEMA-Distill je zanimljiv korak, ali ne i čudo. FL ostaje tehnologija koja obećava više nego što može isporučiti – barem za sada. Dok god ne riješimo fundamentalni problem **povjerenja u podatke** (i klijente koji ih pružaju), svaki novi algoritam će biti samo ljepilo na pukotini. A pukotina, nažalost, postaje sve šira.

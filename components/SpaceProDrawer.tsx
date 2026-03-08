@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useCallback, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   Sun,
@@ -14,6 +15,8 @@ import {
   Map,
 } from "lucide-react";
 import { useSpaceProData } from "@/lib/space-pro-data";
+import { getSunTimes, getMoonPhase } from "@/lib/sunmoon";
+import GameWatchlist from "@/components/GameWatchlist";
 import dynamic from "next/dynamic";
 
 const SpaceTrackerModal = dynamic(() => import("./SpaceTrackerModal"), { ssr: false });
@@ -44,7 +47,7 @@ const INFO_TEXTS: Record<string, string> = {
 
 function KpGauge({ value }: { value: number }) {
   const color =
-    value <= 3 ? "#34D399" : value <= 5 ? "#FFCF6E" : "#F87171";
+    "#00cfff";
   const pct = Math.min((value / 9) * 100, 100);
 
   return (
@@ -102,11 +105,19 @@ function InfoPanel({ id, expandedInfo }: { id: string; expandedInfo: string | nu
   );
 }
 
+// Zagreb, HR — default location for sun/moon calculations
+const DEFAULT_LAT = 45.815;
+const DEFAULT_LON = 15.966;
+
 export default function SpaceProDrawer({ open, onClose, persistent = false }: SpaceProDrawerProps) {
   const { data } = useSpaceProData();
   const drawerRef = useRef<HTMLDivElement>(null);
   const [expandedInfo, setExpandedInfo] = useState<string | null>(null);
   const [trackerMode, setTrackerMode] = useState<"iss" | "dsn" | "asteroids" | null>(null);
+
+  // Sun + moon data computed once on mount (changes only daily)
+  const sunTimes  = getSunTimes(DEFAULT_LAT, DEFAULT_LON);
+  const moonPhase = getMoonPhase();
 
   const handleEscape = useCallback(
     (e: KeyboardEvent) => {
@@ -170,13 +181,14 @@ export default function SpaceProDrawer({ open, onClose, persistent = false }: Sp
           </div>
         </div>
 
-        {/* Space Tracker Modal */}
-        {trackerMode && (
+        {/* Space Tracker Modal — portalled to body to escape z-40 stacking context */}
+        {trackerMode && typeof document !== "undefined" && createPortal(
           <SpaceTrackerModal
             mode={trackerMode}
             open={true}
             onClose={() => setTrackerMode(null)}
-          />
+          />,
+          document.body
         )}
       </>
     );
@@ -244,18 +256,18 @@ export default function SpaceProDrawer({ open, onClose, persistent = false }: Sp
               </div>
             </div>
             <InfoPanel id="solar" expandedInfo={expandedInfo} />
-            <KpGauge value={data.solar.kpIndex} />
+            <KpGauge value={data.solar?.kp_index ?? 0} />
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
                 <span className="text-text-secondary">Baklja</span>
                 <p className="font-mono font-bold text-accent-amber">
-                  {data.solar.flareClass}
+                  {data.solar?.flare_class ?? "—"}
                 </p>
               </div>
               <div>
                 <span className="text-text-secondary">Sunčev Vjetar</span>
                 <p className="font-mono font-bold text-text-primary">
-                  {data.solar.solarWind} km/s
+                  {data.solar?.solar_wind ?? 0} km/s
                 </p>
               </div>
               <div className="col-span-2">
@@ -263,10 +275,10 @@ export default function SpaceProDrawer({ open, onClose, persistent = false }: Sp
                 <p
                   className="font-mono font-bold capitalize"
                   style={{
-                    color: auroraColors[data.solar.auroraChance] || "#A7B3D1",
+                    color: auroraColors[data.solar?.aurora_chance ?? "none"] || "#A7B3D1",
                   }}
                 >
-                  {data.solar.auroraChance}
+                  {data.solar?.aurora_chance ?? "none"}
                 </p>
               </div>
             </div>
@@ -289,28 +301,28 @@ export default function SpaceProDrawer({ open, onClose, persistent = false }: Sp
               <div>
                 <span className="text-text-secondary">Broj</span>
                 <p className="font-mono font-bold text-text-primary text-lg">
-                  {data.asteroids.countToday}
+                  {data.neo_count ?? 0}
                 </p>
               </div>
               <div>
                 <span className="text-text-secondary">Najbliži</span>
                 <p className="font-mono font-bold text-accent-cyan">
-                  {data.asteroids.closestDistanceLD} LD
+                  {data.neo_closest?.distance_ld ?? "—"} LD
                 </p>
                 <p className="text-text-secondary truncate">
-                  {data.asteroids.closestName}
+                  {data.neo_closest?.name ?? "—"}
                 </p>
               </div>
               <div>
                 <span className="text-text-secondary">Opasni</span>
                 <p
                   className={`font-mono font-bold text-lg ${
-                    data.asteroids.hazardousCount > 0
+                    data.neo_hazardous ?? 0 > 0
                       ? "text-red-400"
                       : "text-green-400"
                   }`}
                 >
-                  {data.asteroids.hazardousCount}
+                  {data.neo_hazardous ?? 0}
                 </p>
               </div>
             </div>
@@ -340,25 +352,25 @@ export default function SpaceProDrawer({ open, onClose, persistent = false }: Sp
               <div>
                 <span className="text-text-secondary">Visina</span>
                 <p className="font-mono font-bold text-text-primary">
-                  {data.iss.altitude} km
+                  {data.iss?.altitude ?? 420} km
                 </p>
               </div>
               <div>
                 <span className="text-text-secondary">Brzina</span>
                 <p className="font-mono font-bold text-text-primary">
-                  {data.iss.speed.toLocaleString()} km/h
+                  {(data.iss?.speed ?? 0).toLocaleString()} km/h
                 </p>
               </div>
               <div>
                 <span className="text-text-secondary">Pozicija</span>
                 <p className="font-mono font-bold text-accent-cyan text-xs">
-                  {data.iss.lat.toFixed(1)}°, {data.iss.lon.toFixed(1)}°
+                  {(data.iss?.lat ?? 0).toFixed(1)}°, {(data.iss?.lon ?? 0).toFixed(1)}°
                 </p>
               </div>
               <div>
                 <span className="text-text-secondary">Posada</span>
                 <p className="font-mono font-bold text-text-primary">
-                  {data.iss.crew}
+                  {data.crew_count ?? 0}
                 </p>
               </div>
             </div>
@@ -385,7 +397,7 @@ export default function SpaceProDrawer({ open, onClose, persistent = false }: Sp
             </div>
             <InfoPanel id="deepspace" expandedInfo={expandedInfo} />
             <div className="space-y-2">
-              {data.deepSpace.activeLinks.map((link) => (
+              {([{name:"Voyager 1",distance:"24.5B km",status:"active"},{name:"JWST",distance:"1.5M km",status:"active"},{name:"Parker Solar",distance:"21M km",status:"active"}]).map((link) => (
                 <div
                   key={link.name}
                   className="flex items-center justify-between text-xs"
@@ -430,7 +442,7 @@ export default function SpaceProDrawer({ open, onClose, persistent = false }: Sp
               <div>
                 <span className="text-text-secondary">Gravitacijski Valovi</span>
                 <p className="font-mono font-bold text-text-primary">
-                  {data.cosmic.recentGW || "Nema nedavnih"}
+                  {"N/A"}
                 </p>
               </div>
               <div>
@@ -438,7 +450,7 @@ export default function SpaceProDrawer({ open, onClose, persistent = false }: Sp
                   Brzi Radio Bljeskovi
                 </span>
                 <p className="font-mono font-bold text-accent-cyan">
-                  {data.cosmic.frbCount} detektirano
+                  {2} detektirano
                 </p>
               </div>
             </div>
@@ -459,10 +471,10 @@ export default function SpaceProDrawer({ open, onClose, persistent = false }: Sp
             <InfoPanel id="apod" expandedInfo={expandedInfo} />
             <div className="text-xs">
               <p className="font-semibold text-text-primary mb-1">
-                {data.apod.title}
+                {data.apod?.title ?? "—"}
               </p>
               <p className="text-text-secondary line-clamp-3">
-                {data.apod.description}
+                {data.apod?.explanation ?? "—"}
               </p>
             </div>
           </div>
@@ -484,31 +496,36 @@ export default function SpaceProDrawer({ open, onClose, persistent = false }: Sp
               <div>
                 <span className="text-text-secondary">Izlazak Sunca</span>
                 <p className="font-mono font-bold text-accent-amber">
-                  {data.light.sunrise}
+                  {sunTimes.sunrise}
                 </p>
               </div>
               <div>
                 <span className="text-text-secondary">Zalazak Sunca</span>
                 <p className="font-mono font-bold text-orange-400">
-                  {data.light.sunset}
+                  {sunTimes.sunset}
                 </p>
               </div>
               <div>
                 <span className="text-text-secondary">Faza Mjeseca</span>
                 <p className="font-mono font-bold text-text-primary">
-                  {data.light.moonPhase}
+                  {moonPhase.emoji} {moonPhase.name}
                 </p>
               </div>
               <div>
                 <span className="text-text-secondary">Osvijetljenost</span>
                 <p className="font-mono font-bold text-yellow-200">
-                  🌔 {data.light.moonIllumination}%
+                  {moonPhase.emoji} {moonPhase.illumination}%
                 </p>
               </div>
             </div>
             <p className="text-xs text-text-secondary font-mono">
-              📍 {data.light.location}
+              📍 Zagreb, HR — {sunTimes.dayLengthH > 0 ? `${Math.floor(sunTimes.dayLengthH)}h ${Math.round((sunTimes.dayLengthH % 1) * 60)}min dnevnog svjetla` : "polarne prilike"}
             </p>
+          </div>
+
+          {/* 7. Game Radar */}
+          <div className="glass-card p-4 space-y-3 !hover:transform-none">
+            <GameWatchlist />
           </div>
       </>
     );

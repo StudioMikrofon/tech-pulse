@@ -1,0 +1,29 @@
+---
+id: "2026-03-08-cloudflares-quic-gamble-when-tcp-overhead-becomes-"
+title: "QUIC u Proxy Modu: Cloudflare ubrzava korisnike, a ne samo brojeve"
+lang: "hr"
+category: "technology"
+date: "2026-03-08T12:00:00Z"
+excerpt: "Kada najveći igrač u mrežnoj sigurnosti i performansama objavi da je udvostručio propusnost svog klijentskog softvera i smanjio kašnjenje, lako je to protumačiti kao još jedan marketing podvig s laboratorijskim uvjetima."
+source:
+  name: "Cloudflare Blog"
+  url: "https://blog.cloudflare.com/faster-sase-proxy-mode-quic/"
+image:
+  url: "/images/articles/cloudflares-quic-gamble-when-tcp-overhead-becomes-/main.jpg"
+  alt: "QUIC u Proxy Modu: Cloudflare ubrzava korisnike, a ne samo brojeve"
+subtitle: "Kako eliminacija TCP stoga u korisničkom prostoru mijenja stvarnu brzinu — i tko će to osjetiti"
+tags: ["future-pulse", "automated", "technology"]
+geo:
+  name: "San Francisco, United States"
+  lat: 37.7749
+  lon: -122.4194
+  countryCode: "US"
+featured: false
+approved: true
+---
+
+Kada najveći igrač u mrežnoj sigurnosti i performansama objavi da je udvostručio propusnost svog klijentskog softvera i smanjio kašnjenje, lako je to protumačiti kao još jedan marketing podvig s laboratorijskim uvjetima. Ali ovaj put riječ je o promjeni koja ne samo da poboljšava benchmarkove, nego mijenja način na koji poduzeća i udaljeni timovi komuniciraju s internetom — bez potrebe za skupim hardverskim nadogradnjama. Problem koji je Cloudflare riješio nije bio u nedostatku brze infrastrukture, već u preprekama koje stvara sam način rada tradicionalnih VPN-ova i proxy rješenja. Do sada je Cloudflare One Client (alati za SASE arhitekturu) u Proxy Modu oslanjao se na TCP stog u korisničkom prostoru — sloj softvera koji, iako pouzdan, uvijek donosi dodatno kašnjenje i troškove procesiranja. Prebacivanjem na QUIC protokol — isti koji pokreće brzi prijenos u HTTP/3 — eliminiran je taj middleman, i podaci sada teku izravno kroz jezgro operacijskog sustava. Zašto je ovo važno? Jer većina korisnika ne mjeri performanse u megabitima, nego u osjećaju odziva: koliko brzo se učitava dokument u Google Docs-u kada radite preko VPN-a, ili hoće li video poziv zapinjati pri dijeljenju ekrana. Cloudflare tvrdi da su latencija i propusnost poboljšani do te mjere da bi korisnici mogli osjetiti razliku čak i na sporijim vezama — što je ključno za tržišta kao što je Hrvatska, gdje je prosječna brzina interneta i dalje iza europskog prosjeka. Ali koliko je ovo stvarno korisničko poboljšanje, a koliko samo optimizacija za sintetičke testove? Dok konkurenti poput Zscalera ili Palo Alto Networks još uvijek uglavnom oslanjaju na TCP za svoje SASE rješenje, Cloudflareov potez nije samo tehnološka evolucija, nego strategijski pritisak na cijelu industriju. Ako se pokaže da QUIC u Proxy Modu donosi konzistentne poboljšane performanse u realnim uvjetima — a ne samo u kontroliranim okruženjima — to bi moglo natjerati druge igrače da ubrzaju razvoj vlastitih rješenja. Ali tu je i pitanje: hoće li korisnici ikada primijetiti razliku, ili će ovo ostati „pod haubom“ kao još jedna nevidljiva optimizacija? Cloudflare je ovdje napravio korak naprijed, ali cijeli ekosustav mora pratiti da bi korisnik u potpunosti iskoristio prednosti. Zanimljivo je i kako community reagira na ovu vijest. Dok dio razvojaša na Hacker News hvali Cloudflareov pragmatičan pristup (QUIC umjesto eksperimentalnijih protokola poput MPTCP), drugi upozoravaju da performanse u Proxy Modu ovise o mnogo više faktora — uključujući i to kako je konfiguriran sam Cloudflareov globalni CDN.
+
+<ArticleBreak />
+
+Da bismo razumjeli stvarni učinak ove promjene, moramo razlikovati dva aspekta: što se dogodilo u laboratoriju i što će korisnici doživjeti u praksi. Cloudflare navodi 2x veću propusnost i značajno smanjenu latenciju, ali te brojke dolaze iz internih testova — a realni svijet je pun varijabli: od preopterećenih Wi-Fi mreža do ISP-ova koji throttlaju promet. Prema dostupnim informacijama, poboljšanja su najizraženija u scenarijima gdje je TCP overhead bio najvidljiviji (npr. kod malih, čestih zahtjeva), ali nije jasno kako se ovo ponaša na vezama s visokim gubicima paketa ili nestabilnom latencijom. Za poduzeća koja koriste Cloudflare One (a to su često tvrtke s udaljenim timovima ili globalnom infrastrukturom), ova promjena mogli bi smanjiti potrebu za dodatnim „brzim“ VPN rješenjima — ili čak ubrzati migraciju s tradicionalnih VPN-ova na moderne SASE modele. Ali tu je i skriveni trošak: QUIC, iako efikasan, zahtijeva podršku na obje strane veze. Ako korisnikove aplikacije ili poslužitelji još uvijek optimalno rade samo s TCP-om, dio prednosti može biti izgubljen. Čini se da najveća prednost ove promjene nije sama brzina, nego smanjena složenost: manje slojeva softvera znači manje grešaka, manje bugova i lakše održavanje. Ali postoji i pitanje dugoročne strategije. Cloudflare ne prodaje samo SASE rješenja — on je i jedan od najvećih CDN provajdera na svijetu. Ako QUIC u Proxy Modu postane standard, to bi moglo pojednostaviti integraciju između Cloudflareovih usluga, ali i stvoriti zavisnost od njihovog ekosustava. Za korisnike koji već koriste više Cloudflareovih proizvoda (npr. Cloudflare Tunnels + Zero Trust), ovo je čista prednost. Za one koji žele ostati vendor-neutral, možda manje. Na kraju, ova vijest nije samo o bržem Proxy Modu, nego o trendu ka ujedinjenijim mrežnim protokolima. QUIC nije samo zamjena za TCP — on je dio šireg pomaka prema jednostavnijim, efikasnijim i sigurnijim načinima komunikacije.

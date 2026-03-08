@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   getAllArticles,
   getArticleBySlug,
+  getRelatedArticles,
 } from "@/lib/content";
 import {
   CATEGORY_LABELS,
@@ -17,7 +18,12 @@ import SolarSystemBackground from "@/components/SolarSystemBackground";
 import Comments from "@/components/Comments";
 import YouTubeEmbed from "@/components/YouTubeEmbed";
 import GlobeModal from "@/components/GlobeModal";
+import LangSwitcher from "@/components/LangSwitcher";
+import RelatedArticles from "@/components/RelatedArticles";
+import ArticleEditPanel from "@/components/ArticleEditPanel";
 import type { Metadata } from "next";
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://techand.space";
 
 interface PageProps {
   params: Promise<{ category: string; id: string }>;
@@ -38,15 +44,36 @@ export async function generateMetadata({
   const article = getArticleBySlug(category, id);
   if (!article) return { title: "Article Not Found" };
 
+  const canonicalUrl = `${SITE_URL}/article/${category}/${id}`;
+  const ogImage = article.image?.url?.startsWith("http")
+    ? article.image.url
+    : article.image?.url
+    ? `${SITE_URL}${article.image.url}`
+    : `${SITE_URL}/logo.jpg`;
+
   return {
     title: article.title,
     description: article.excerpt,
+    keywords: article.tags.join(", "),
+    alternates: {
+      canonical: canonicalUrl,
+      languages: { "hr": `${SITE_URL}/hr/article/${category}/${id}` },
+    },
     openGraph: {
       title: article.title,
       description: article.excerpt,
       type: "article",
+      url: canonicalUrl,
       publishedTime: article.date,
       tags: article.tags,
+      siteName: "TECH & SPACE",
+      images: [{ url: ogImage, width: 1200, height: 630, alt: article.title }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: article.title,
+      description: article.excerpt,
+      images: [ogImage],
     },
   };
 }
@@ -57,21 +84,34 @@ export default async function ArticlePage({ params }: PageProps) {
 
   if (!article) notFound();
 
+  const related = getRelatedArticles(article.id, article.category, article.tags);
+
+  const canonicalUrl = `${SITE_URL}/article/${category}/${id}`;
+  const ogImage = article.image?.url?.startsWith("http")
+    ? article.image.url
+    : article.image?.url
+    ? `${SITE_URL}${article.image.url}`
+    : `${SITE_URL}/logo.jpg`;
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "NewsArticle",
     headline: article.title,
     description: article.excerpt,
+    image: ogImage,
     datePublished: article.date,
-    author: {
-      "@type": "Organization",
-      name: article.source.name,
-      url: article.source.url,
-    },
+    dateModified: article.date,
+    author: { "@type": "Organization", name: article.source.name, url: article.source.url },
     publisher: {
       "@type": "Organization",
       name: "TECH & SPACE",
+      url: SITE_URL,
+      logo: { "@type": "ImageObject", url: `${SITE_URL}/logo.jpg` },
     },
+    mainEntityOfPage: { "@type": "WebPage", "@id": canonicalUrl },
+    articleSection: article.category,
+    keywords: article.tags.join(", "),
+    ...(article.videoUrl ? { video: { "@type": "VideoObject", url: article.videoUrl } } : {}),
   };
 
   // Determine which celestial body to highlight for space articles
@@ -100,15 +140,16 @@ export default async function ArticlePage({ params }: PageProps) {
         )
       )}
       <article className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        {/* Back link */}
-        <div className="article-enter">
+        {/* Back link + lang switch */}
+        <div className="article-enter flex items-center justify-between mb-6">
           <Link
             href="/"
-            className="inline-flex items-center gap-2 text-sm text-text-secondary hover:text-accent-cyan transition-colors mb-6"
+            className="inline-flex items-center gap-2 text-sm text-text-secondary hover:text-accent-cyan transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Home
           </Link>
+          <LangSwitcher lang="en" href={`/hr/article/${category}/${id}`} />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8">
@@ -116,11 +157,16 @@ export default async function ArticlePage({ params }: PageProps) {
           <div>
             {/* Header */}
             <div className="article-enter-delay-1">
-              <span
-                className={`category-badge category-badge-${article.category} mb-4 inline-block`}
-              >
-                {CATEGORY_LABELS[article.category]}
-              </span>
+              <div className="flex items-center gap-3 mb-4">
+                <span className={`category-badge category-badge-${article.category}`}>
+                  {CATEGORY_LABELS[article.category]}
+                </span>
+                {process.env.NEXT_PUBLIC_AGENT_PANEL === "true" && (
+                  <span className={`text-[10px] font-mono border rounded px-1.5 py-0.5 ${article.dbId ? "text-accent-cyan/60 border-accent-cyan/20" : "text-red-400/50 border-red-400/20"}`}>
+                    {article.dbId ? `db#${article.dbId}` : "no db_id"}
+                  </span>
+                )}
+              </div>
 
               <h1 className="font-heading text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-text-primary leading-tight mb-4">
                 {article.title}
@@ -231,6 +277,11 @@ export default async function ArticlePage({ params }: PageProps) {
 
             {/* Comments */}
             <Comments term={`${article.category}/${article.id}`} />
+
+            {/* Editorial panel — only on test site */}
+            {process.env.NEXT_PUBLIC_AGENT_PANEL === "true" && (
+              <ArticleEditPanel dbId={article.dbId} articleSlug={article.id} />
+            )}
           </div>
 
           {/* Sidebar */}
@@ -258,6 +309,9 @@ export default async function ArticlePage({ params }: PageProps) {
                 {article.source.name}
               </a>
             </div>
+
+            {/* Related articles */}
+            {related.length > 0 && <RelatedArticles articles={related} />}
           </aside>
         </div>
       </article>

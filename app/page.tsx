@@ -7,6 +7,7 @@ import HeroSection from "@/components/HeroSection";
 import ArticleGrid from "@/components/ArticleGrid";
 import SpaceBar from "@/components/SpaceBar";
 import SolarSystem from "@/components/SolarSystem";
+import LangSwitcher from "@/components/LangSwitcher";
 
 export default function HomePage() {
   const articles = getAllArticles();
@@ -29,6 +30,7 @@ export default function HomePage() {
 
   return (
     <>
+      <LangSwitcher lang="en" href="/hr" />
       {/* Subtle solar system ambient background behind starfield */}
       <div className="fixed inset-0 pointer-events-none opacity-[0.15] z-0">
         <SolarSystem interactive />

@@ -152,7 +152,7 @@ export default function Header() {
               className="fixed inset-0 top-16 z-40 bg-black/50"
               onClick={() => setMenuOpen(false)}
             />
-            <nav className="relative z-50 md:hidden bg-space-bg/95 backdrop-blur-xl border-t border-white/10 px-4 pb-4">
+            <nav className="relative z-50 md:hidden bg-space-bg/95 backdrop-blur-xl border-t border-white/10 px-4 pb-4 max-h-[calc(100dvh-4rem)] overflow-y-auto">
               {CATEGORIES.map((cat) => (
                 <Link
                   key={cat}

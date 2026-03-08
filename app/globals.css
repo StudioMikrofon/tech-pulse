@@ -1,11 +1,20 @@
 @import "tailwindcss";
 
+/* ── JARVIS TERMINAL THEME ─────────────────────────────────────────────────── */
 :root {
-  --background: #05070D;
-  --foreground: #EAF0FF;
+  --background: #070c14;
+  --foreground: #d6f2ff;
   --font-heading: var(--font-orbitron);
   --font-body: var(--font-space-grotesk);
   --font-mono: var(--font-fira-code);
+
+  /* Single accent: Jarvis cyan */
+  --jarvis-accent: #00cfff;
+  --jarvis-accent-soft: rgba(0, 207, 255, 0.15);
+  --jarvis-accent-glow: rgba(0, 207, 255, 0.4);
+  --jarvis-border: rgba(0, 207, 255, 0.2);
+  --jarvis-surface: rgba(10, 22, 34, 0.8);
+  --jarvis-text-dim: #4e7a93;
 }
 
 @theme inline {
@@ -15,54 +24,54 @@
   --font-heading: var(--font-heading);
   --font-mono: var(--font-mono);
 
-  /* Space colors */
-  --color-space-bg: #05070D;
-  --color-space-surface: rgba(255, 255, 255, 0.06);
-  --color-space-border: rgba(255, 255, 255, 0.10);
+  /* Surface and borders */
+  --color-space-bg: #070c14;
+  --color-space-surface: rgba(0, 207, 255, 0.05);
+  --color-space-border: rgba(0, 207, 255, 0.2);
 
   /* Text */
-  --color-text-primary: #EAF0FF;
-  --color-text-secondary: #A7B3D1;
+  --color-text-primary: #d6f2ff;
+  --color-text-secondary: #7fb9d6;
 
-  /* Accents */
-  --color-accent-starlight: #F5E6A8;
-  --color-accent-cyan: #8FD3FF;
-  --color-accent-amber: #FFCF6E;
+  /* Single accent — Jarvis cyan only, no amber/gold */
+  --color-accent-cyan: #00cfff;
+  --color-accent-starlight: #00cfff;
+  --color-accent-amber: #00cfff;
 
-  /* Categories */
-  --color-category-ai: #A78BFA;
-  --color-category-gaming: #F87171;
-  --color-category-space: #60A5FA;
-  --color-category-technology: #34D399;
-  --color-category-medicine: #FB923C;
-  --color-category-society: #F472B6;
-  --color-category-robotics: #38BDF8;
+  /* Categories — all unified cyan palette */
+  --color-category-ai: #00cfff;
+  --color-category-gaming: #00b8e6;
+  --color-category-space: #00cfff;
+  --color-category-technology: #00b8e6;
+  --color-category-medicine: #00cfff;
+  --color-category-society: #00b8e6;
+  --color-category-robotics: #00cfff;
 }
 
 body {
-  background: var(--background);
+  background: radial-gradient(circle at 50% 30%, #0b1622 0%, #070c14 70%);
   color: var(--foreground);
   font-family: var(--font-body), system-ui, sans-serif;
   min-height: 100vh;
   overflow-x: hidden;
 }
 
-/* Nebula gradient overlay */
+/* Nebula gradient overlay — Jarvis cyan only */
 .nebula-bg {
   background:
-    radial-gradient(ellipse at 20% 50%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 20%, rgba(139, 92, 246, 0.06) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 80%, rgba(59, 130, 246, 0.05) 0%, transparent 50%);
+    radial-gradient(ellipse at 20% 50%, rgba(0, 207, 255, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(0, 184, 230, 0.03) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(0, 207, 255, 0.02) 0%, transparent 50%);
 }
 
 /* =========================================================================
    Glass card
    ========================================================================= */
 .glass-card {
-  background: rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: var(--jarvis-surface);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--jarvis-border);
   border-radius: 12px;
   transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
 }
@@ -72,7 +81,7 @@ body {
   box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.3),
     0 0 40px rgba(143, 211, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.18);
+  border-color: rgba(0, 207, 255, 0.4);
 }
 
 /* =========================================================================
@@ -87,13 +96,18 @@ body {
   border-radius: 9999px;
 }
 
-.category-badge-ai { background: rgba(167, 139, 250, 0.2); color: #A78BFA; }
-.category-badge-gaming { background: rgba(248, 113, 113, 0.2); color: #F87171; }
-.category-badge-space { background: rgba(96, 165, 250, 0.2); color: #60A5FA; }
-.category-badge-technology { background: rgba(52, 211, 153, 0.2); color: #34D399; }
-.category-badge-medicine { background: rgba(251, 146, 60, 0.2); color: #FB923C; }
-.category-badge-society { background: rgba(244, 114, 182, 0.2); color: #F472B6; }
-.category-badge-robotics { background: rgba(56, 189, 248, 0.2); color: #38BDF8; }
+.category-badge-ai,
+.category-badge-gaming,
+.category-badge-space,
+.category-badge-technology,
+.category-badge-tech,
+.category-badge-medicine,
+.category-badge-society,
+.category-badge-robotics {
+  background: rgba(0, 207, 255, 0.12);
+  color: #00cfff;
+  border: 1px solid rgba(0, 207, 255, 0.25);
+}
 
 /* =========================================================================
    Ticker animation
@@ -139,7 +153,7 @@ body {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #34D399;
+  background: #00cfff;
   animation: pulse-dot 2s ease-in-out infinite;
 }
 

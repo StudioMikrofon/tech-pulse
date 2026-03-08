@@ -11,6 +11,7 @@ import { playSound } from "@/lib/sounds";
 interface ArticleCardProps {
   article: Article;
   onGeoClick?: (article: Article) => void;
+  basePath?: string;
 }
 
 const LOADING_LINES = [
@@ -19,7 +20,7 @@ const LOADING_LINES = [
   "> LOADING ARTICLE",
 ];
 
-export default function ArticleCard({ article, onGeoClick }: ArticleCardProps) {
+export default function ArticleCard({ article, onGeoClick, basePath = "" }: ArticleCardProps) {
   const router = useRouter();
   const cardRef = useRef<HTMLDivElement>(null);
   const [isWarping, setIsWarping] = useState(false);
@@ -49,7 +50,7 @@ export default function ArticleCard({ article, onGeoClick }: ArticleCardProps) {
 
     // Navigate after animation
     setTimeout(() => {
-      router.push(`/article/${article.category}/${article.id}`);
+      router.push(`${basePath}/article/${article.category}/${article.id}`);
     }, 600);
   };
 
