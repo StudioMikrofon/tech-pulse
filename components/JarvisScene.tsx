@@ -450,18 +450,13 @@ function computeFlyTo(id: string, type: string, pos: THREE.Vector3) {
   let flyLook: THREE.Vector3;
 
   if (type === "ISS") {
-    flyTarget = pos.clone().add(new THREE.Vector3(0, 2, 3));
+    flyTarget = pos.clone().add(new THREE.Vector3(0, 0.6, 1.0));
     flyLook = pos.clone();
-  } else if (id === "planet-jupiter") {
-    // Cinematic: approach from slightly above-left, Jupiter offset right of center
-    const dirToSun = SUN_POS.clone().sub(pos).normalize();
-    flyTarget = pos.clone().add(dirToSun.clone().multiplyScalar(dist)).add(new THREE.Vector3(0, dist * 0.4, 0));
-    flyLook = pos.clone().add(new THREE.Vector3(dist * 0.6, 0, 0)); // offset look right = Jupiter left of center
   } else {
     const dirToEarth = EARTH_POS.clone().sub(pos).normalize();
     flyTarget = pos.clone().sub(dirToEarth.clone().multiplyScalar(dist));
     flyTarget.y = Math.max(flyTarget.y, pos.y + dist * 0.25);
-    flyLook = pos.clone().add(dirToEarth.clone().multiplyScalar(pos.distanceTo(EARTH_POS) * 0.3));
+    flyLook = pos.clone(); // look directly at object center
   }
 
   return { flyTarget, flyLook, dist };
@@ -565,6 +560,7 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         const { objectMap, asteroidAnims } = internals.current;
 
         if (target.type === "reset" || target.type === "earth") {
+          internals.current.controls.enabled = true;
           internals.current.flyLook = EARTH_POS.clone();
           internals.current.flyTarget = new THREE.Vector3(0, 3, 8);
           internals.current.flyDist = 8;
@@ -584,6 +580,7 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
           if (objData) onSelectObject?.(objData);
 
           const { flyTarget, flyLook, dist } = computeFlyTo(key, objData?.type || "object", pos);
+          internals.current.controls.enabled = true; // re-enable so fly lerp is not blocked
           internals.current.flyTarget = flyTarget;
           internals.current.flyLook = flyLook;
           internals.current.flyDist = dist;
@@ -628,15 +625,28 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       const controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.dampingFactor = 0.2;
-      controls.minDistance = 1;
+      controls.minDistance = 0.5;
       controls.maxDistance = 150;
       controls.zoomSpeed = 1.0;
       controls.rotateSpeed = 0.6;
       controls.target.copy(EARTH_POS);
 
+      // ── Custom orbit state ──────────────────────────────────────────────────
+      // Used when an object is focused (replaces OrbitControls so rotation is
+      // guaranteed to work around any world-space position, not just origin).
+      const orb = {
+        theta: 0,      // horizontal angle (radians)
+        phi: Math.PI / 3, // vertical angle from top (radians)
+        r: 5,          // distance from target
+        active: false, // currently dragging in custom orbit mode
+        ptrId: -1,
+        sx: 0, sy: 0,  // pointer start screen coords
+        st: 0, sp: 0,  // theta/phi at drag start
+      };
+
       // Lighting — balanced so planets look good but Earth still has day/night contrast
-      scene.add(new THREE.AmbientLight(0x889aab, 0.18));
-      scene.add(new THREE.HemisphereLight(0xffffff, 0x222244, 0.10));
+      scene.add(new THREE.AmbientLight(0x889aab, 0.65));
+      scene.add(new THREE.HemisphereLight(0xffffff, 0x222244, 0.40));
       const sunLight = new THREE.PointLight(0xffffff, 3.5, 300);
       sunLight.position.copy(SUN_POS);
       scene.add(sunLight);
@@ -646,7 +656,7 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       dirLight.target.position.copy(EARTH_POS);
       scene.add(dirLight);
       scene.add(dirLight.target);
-      const fillLight = new THREE.PointLight(0x0066ff, 0.08, 100);
+      const fillLight = new THREE.PointLight(0x4488ff, 0.5, 200);
       fillLight.position.set(30, 10, 20);
       scene.add(fillLight);
 
@@ -670,9 +680,9 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       const texLoader = new THREE.TextureLoader();
 
       // ===== EARTH — day/night with city lights emissiveMap =====
-      const earthDayTex = texLoader.load("/textures/earth_day.jpg");
+      const earthDayTex = texLoader.load("/textures/planets/2k_earth_daymap.jpg");
       const earthBumpTex = texLoader.load("/textures/earth_bump.jpg");
-      const earthNightTex = texLoader.load("/textures/earth_night.jpg");
+      const earthNightTex = texLoader.load("/textures/planets/2k_earth_nightmap.jpg");
       const earthCore = new THREE.Mesh(
         new THREE.SphereGeometry(EARTH_RADIUS, 64, 64),
         new THREE.MeshStandardMaterial({
@@ -736,21 +746,32 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
 
       // ===== ISS — detailed model at actual lat/lon =====
       const issGroup = new THREE.Group();
-      const issBody = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.03, 0.03), new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.3, metalness: 0.5 }));
-      issGroup.add(issBody);
-      const issTruss = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.005, 0.005), new THREE.MeshStandardMaterial({ color: 0x999999, roughness: 0.4, metalness: 0.6 }));
+      // Habitation modules (prominent white cylinder cluster)
+      const issBodyMat = new THREE.MeshStandardMaterial({ color: 0xf0f0f0, roughness: 0.3, metalness: 0.55, emissive: 0x222222, emissiveIntensity: 0.15 });
+      const issBody = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.10, 10), issBodyMat);
+      issBody.rotation.z = Math.PI / 2; issGroup.add(issBody);
+      // Secondary module perpendicular
+      const issBody2 = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.06, 8), issBodyMat);
+      issBody2.position.z = 0.012; issGroup.add(issBody2);
+      // Main truss — horizontal
+      const issTruss = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.006, 0.006), new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.45, metalness: 0.7 }));
       issGroup.add(issTruss);
-      const issPanelMat = new THREE.MeshStandardMaterial({ color: 0xdaa520, emissive: 0x886611, emissiveIntensity: 0.3, roughness: 0.3, metalness: 0.4, side: THREE.DoubleSide });
-      const panelOffsets = [-0.1, -0.05, 0.05, 0.1];
+      // Solar panels — large gold panels along truss (4 pairs)
+      const issPanelMat = new THREE.MeshStandardMaterial({ color: 0xc8901a, emissive: 0xaa7010, emissiveIntensity: 0.55, roughness: 0.2, metalness: 0.5, side: THREE.DoubleSide });
+      const panelOffsets = [-0.13, -0.07, 0.07, 0.13];
       for (const xOff of panelOffsets) {
-        const panel = new THREE.Mesh(new THREE.PlaneGeometry(0.06, 0.03), issPanelMat);
-        panel.position.set(xOff, 0.02, 0); panel.rotation.x = Math.PI / 2; issGroup.add(panel);
-        const panel2 = panel.clone(); panel2.position.set(xOff, -0.02, 0); issGroup.add(panel2);
+        const panel = new THREE.Mesh(new THREE.PlaneGeometry(0.055, 0.040), issPanelMat);
+        panel.position.set(xOff, 0.028, 0); issGroup.add(panel);
+        const panel2 = panel.clone(); panel2.position.set(xOff, -0.028, 0); issGroup.add(panel2);
       }
+      // Radiator panels (white, perpendicular to truss)
       const radMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0.2, side: THREE.DoubleSide });
-      const rad1 = new THREE.Mesh(new THREE.PlaneGeometry(0.02, 0.015), radMat);
-      rad1.position.set(-0.03, 0, 0.02); issGroup.add(rad1);
-      const rad2 = rad1.clone(); rad2.position.set(0.03, 0, 0.02); issGroup.add(rad2);
+      const rad1 = new THREE.Mesh(new THREE.PlaneGeometry(0.035, 0.020), radMat);
+      rad1.position.set(-0.04, 0, 0.025); rad1.rotation.y = Math.PI / 2; issGroup.add(rad1);
+      const rad2 = rad1.clone(); rad2.position.set(0.04, 0, 0.025); rad2.rotation.y = Math.PI / 2; issGroup.add(rad2);
+      // Glowing blue point light to make ISS visible from afar
+      const issGlow = new THREE.PointLight(0x44aaff, 0.6, 2.5);
+      issGroup.add(issGlow);
 
       const issPos3d = latLonToSphere(issData.lat, issData.lon, EARTH_RADIUS + 0.5, EARTH_POS);
       issGroup.position.copy(issPos3d);
@@ -771,13 +792,13 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       issMesh.add(issLabel);
 
       // ===== MOON — real-time J2000 position =====
-      const moonTex = texLoader.load("/textures/moon.jpg");
+      const moonTex = texLoader.load("/textures/planets/2k_moon.jpg");
       moonTex.wrapS = THREE.RepeatWrapping;
       const moonMesh = new THREE.Mesh(
         new THREE.SphereGeometry(MOON_RADIUS, 32, 32),
         new THREE.MeshStandardMaterial({
           map: moonTex, roughness: 0.85, metalness: 0.05,
-          emissive: new THREE.Color(0x666666), emissiveIntensity: 0.5,
+          emissive: new THREE.Color(0x111111), emissiveIntensity: 0.1,
         }),
       );
       const moonLonDeg = (218.316 + 13.176396 * DAYS_SINCE_J2000) % 360;
@@ -919,7 +940,7 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       const sunMat = new THREE.MeshBasicMaterial({
         map: sunFallbackTex,
       });
-      texLoader.load("/textures/sun.jpg", (tex) => { tex.wrapS = THREE.RepeatWrapping; sunMat.map = tex; sunMat.needsUpdate = true; });
+      texLoader.load("/textures/planets/2k_sun.jpg", (tex) => { tex.wrapS = THREE.RepeatWrapping; sunMat.map = tex; sunMat.needsUpdate = true; });
       const sunMesh = new THREE.Mesh(sunGeo, sunMat);
       sunMesh.position.copy(SUN_POS);
       scene.add(sunMesh);
@@ -976,9 +997,13 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       // ===== PLANETS — real J2000 positions, realistic rotation =====
       const planetAnims: NonNullable<typeof internals.current>["planetAnims"] = [];
       const planetTexFiles: Record<string, string> = {
-        mercury: "/textures/mercury.jpg", venus: "/textures/venus.jpg",
-        mars: "/textures/mars.jpg", jupiter: "/textures/jupiter.jpg",
-        saturn: "/textures/saturn.jpg", neptune: "/textures/neptune.jpg",
+        mercury: "/textures/planets/2k_mercury.jpg",
+        venus: "/textures/planets/2k_venus_surface.jpg",
+        mars: "/textures/planets/2k_mars.jpg",
+        jupiter: "/textures/planets/2k_jupiter.jpg",
+        saturn: "/textures/planets/2k_saturn.jpg",
+        uranus: "/textures/planets/2k_uranus.jpg",
+        neptune: "/textures/planets/2k_neptune.jpg",
       };
 
       PLANET_DATA.forEach((p) => {
@@ -986,17 +1011,15 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         orbitRing.position.copy(SUN_POS);
         scene.add(orbitRing);
 
-        const pGeo = new THREE.SphereGeometry(p.radius, 32, 32);
+        const pGeo = new THREE.SphereGeometry(p.radius, 48, 48);
         const fallbackCanvas = generatePlanetTexture(p.name);
         const fallbackTex = new THREE.CanvasTexture(fallbackCanvas);
-        // Jupiter gets low emissive so sunLight casts visible shadow on its surface
-        const isJupiter = p.name === "Jupiter";
         const pMat = new THREE.MeshStandardMaterial({
           map: fallbackTex,
           roughness: p.gasGiant ? 0.45 : 0.65,
-          metalness: p.gasGiant ? 0.05 : 0.15,
-          emissive: new THREE.Color(isJupiter ? 0x0a0500 : 0x222222),
-          emissiveIntensity: isJupiter ? 0.08 : 0.6,
+          metalness: p.gasGiant ? 0.05 : 0.10,
+          emissive: new THREE.Color(0x000000),
+          emissiveIntensity: 0,
         });
 
         const texFile = planetTexFiles[p.name.toLowerCase()];
@@ -1012,23 +1035,14 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         scene.add(pMesh);
         objectMap.set(`planet-${p.name.toLowerCase()}`, pMesh);
 
-        // Saturn rings
+        // Saturn rings — real texture
         if (p.ring) {
-          const ringInner = new THREE.Mesh(
-            new THREE.RingGeometry(p.radius * 1.3, p.radius * 1.7, 64),
-            new THREE.MeshBasicMaterial({ color: 0xe8d5a3, transparent: true, opacity: 0.35, side: THREE.DoubleSide }),
-          );
-          ringInner.rotation.x = Math.PI / 2; pMesh.add(ringInner);
-          const ringGap = new THREE.Mesh(
-            new THREE.RingGeometry(p.radius * 1.7, p.radius * 1.75, 64),
-            new THREE.MeshBasicMaterial({ color: 0x050710, transparent: true, opacity: 0.6, side: THREE.DoubleSide }),
-          );
-          ringGap.rotation.x = Math.PI / 2; pMesh.add(ringGap);
-          const ringOuter = new THREE.Mesh(
-            new THREE.RingGeometry(p.radius * 1.75, p.radius * 2.3, 64),
-            new THREE.MeshBasicMaterial({ color: 0xd4c090, transparent: true, opacity: 0.25, side: THREE.DoubleSide }),
-          );
-          ringOuter.rotation.x = Math.PI / 2; pMesh.add(ringOuter);
+          const ringMat = new THREE.MeshBasicMaterial({ color: 0xeeddaa, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false });
+          texLoader.load("/textures/planets/2k_saturn_ring_alpha.png", (ringTex) => {
+            ringMat.alphaMap = ringTex; ringMat.map = ringTex; ringMat.needsUpdate = true;
+          });
+          const ringMesh = new THREE.Mesh(new THREE.RingGeometry(p.radius * 1.25, p.radius * 2.35, 128), ringMat);
+          ringMesh.rotation.x = Math.PI / 2; pMesh.add(ringMesh);
         }
 
         const lbl = createLabel(p.name.toUpperCase(), p.color, 1.5);
@@ -1205,11 +1219,53 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
       renderer.domElement.addEventListener("pointerup", onPointerUp);
 
       let interacting = false;
-      function onInteractStart() { interacting = true; idleTime = 0; }
-      function onInteractEnd() { interacting = false; }
-      renderer.domElement.addEventListener("pointerdown", onInteractStart);
-      renderer.domElement.addEventListener("pointerup", onInteractEnd);
-      renderer.domElement.addEventListener("wheel", () => { idleTime = 0; });
+
+      // ── Custom orbit pointer handlers ───────────────────────────────────────
+      function onOrbitPointerDown(e: PointerEvent) {
+        idleTime = 0;
+        state.flyTarget = null;
+        state.flyLook = null;
+        interacting = true;
+
+        if (state.selectedId) {
+          // Custom orbit mode: capture pointer and record start state
+          renderer.domElement.setPointerCapture(e.pointerId);
+          orb.active = true;
+          orb.ptrId = e.pointerId;
+          orb.sx = e.clientX; orb.sy = e.clientY;
+          orb.st = orb.theta; orb.sp = orb.phi;
+        }
+      }
+
+      function onOrbitPointerMove(e: PointerEvent) {
+        if (!orb.active || orb.ptrId !== e.pointerId) return;
+        const dx = (e.clientX - orb.sx) / width;
+        const dy = (e.clientY - orb.sy) / height;
+        orb.theta = orb.st - dx * Math.PI * 2;
+        orb.phi = Math.max(0.05, Math.min(Math.PI - 0.05, orb.sp + dy * Math.PI));
+      }
+
+      function onOrbitPointerUp(e: PointerEvent) {
+        if (orb.ptrId === e.pointerId) {
+          orb.active = false;
+          orb.ptrId = -1;
+        }
+        interacting = false;
+      }
+
+      function onOrbitWheel(e: WheelEvent) {
+        idleTime = 0;
+        if (state.selectedId && !state.flyTarget) {
+          // Custom zoom for focused mode
+          orb.r = Math.max(0.5, Math.min(150, orb.r * (1 + e.deltaY * 0.001)));
+          e.stopPropagation();
+        }
+      }
+
+      renderer.domElement.addEventListener("pointerdown", onOrbitPointerDown);
+      renderer.domElement.addEventListener("pointermove", onOrbitPointerMove);
+      renderer.domElement.addEventListener("pointerup", onOrbitPointerUp);
+      renderer.domElement.addEventListener("wheel", onOrbitWheel);
 
       const trailHistory: THREE.Vector3[][] = asteroidAnims.map(() => []);
       let issAngle = 0;
@@ -1363,31 +1419,66 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
           }
         }
 
-        // Camera fly-to — stop lerping when user is actively dragging
+        // ── Fly-in animation (lerp camera + look target toward object) ─────────
         if (state.flyLook && !interacting) {
-          controls.target.lerp(state.flyLook, 0.06);
-          if (controls.target.distanceTo(state.flyLook) < 0.05) state.flyLook = null;
+          controls.target.lerp(state.flyLook, 0.08);
+          if (controls.target.distanceTo(state.flyLook) < 0.05) {
+            controls.target.copy(state.flyLook);
+            state.flyLook = null;
+            // Fly-in done — initialise custom orbit from arrived camera position
+            if (state.selectedId) {
+              const arrived = objectMap.get(state.selectedId);
+              if (arrived) {
+                const tgt = new THREE.Vector3();
+                arrived.getWorldPosition(tgt);
+                const off = camera.position.clone().sub(tgt);
+                orb.r = Math.max(0.5, off.length());
+                orb.phi = Math.acos(Math.max(-1, Math.min(1, off.y / orb.r)));
+                orb.theta = Math.atan2(off.x, off.z);
+              }
+            }
+          }
         }
         if (state.flyTarget && !interacting) {
-          camera.position.lerp(state.flyTarget, 0.04);
+          camera.position.lerp(state.flyTarget, 0.06);
           if (camera.position.distanceTo(state.flyTarget) < 0.05) state.flyTarget = null;
         }
 
-        // Auto-rotate: gentle always-on drift after 5s idle
-        // Slower when object is focused, normal when free
-        if (!interacting && !state.flyTarget) {
-          idleTime += delta;
-          if (idleTime > 5) {
-            const maxSpeed = state.selectedId ? 0.0003 : 0.0006;
-            const autoSpeed = Math.min((idleTime - 5) * 0.0002, maxSpeed);
-            const camDir = camera.position.clone().sub(controls.target);
-            const camDist = camDir.length();
-            camDir.normalize();
-            camDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), autoSpeed);
-            camera.position.copy(controls.target).add(camDir.multiplyScalar(camDist));
+        // ── Custom orbit: position camera around focused object ──────────────
+        if (state.selectedId && !state.flyLook && !state.flyTarget) {
+          const trackedObj = objectMap.get(state.selectedId);
+          if (trackedObj) {
+            const tgt = new THREE.Vector3();
+            trackedObj.getWorldPosition(tgt);
+
+            const sinPhi = Math.sin(orb.phi);
+            const cosPhi = Math.cos(orb.phi);
+            camera.position.set(
+              tgt.x + orb.r * sinPhi * Math.sin(orb.theta),
+              tgt.y + orb.r * cosPhi,
+              tgt.z + orb.r * sinPhi * Math.cos(orb.theta),
+            );
+            camera.lookAt(tgt);
+            controls.target.copy(tgt);
+            controls.enabled = false; // OrbitControls stays off during focused mode
           }
-        } else {
-          idleTime = 0;
+        } else if (!state.selectedId) {
+          controls.enabled = true;
+
+          // Free-explore auto-rotate after 5s idle
+          if (!interacting && !state.flyTarget) {
+            idleTime += delta;
+            if (idleTime > 5) {
+              const autoSpeed = Math.min((idleTime - 5) * 0.0002, 0.0006);
+              const camDir = camera.position.clone().sub(controls.target);
+              const camDist = camDir.length();
+              camDir.normalize();
+              camDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), autoSpeed);
+              camera.position.copy(controls.target).add(camDir.multiplyScalar(camDist));
+            }
+          } else if (interacting) {
+            idleTime = 0;
+          }
         }
 
         controls.update();
@@ -1406,8 +1497,10 @@ const JarvisScene = forwardRef<JarvisSceneHandle, JarvisSceneProps>(
         cancelAnimationFrame(state.animId);
         renderer.domElement.removeEventListener("pointerdown", onPointerDown);
         renderer.domElement.removeEventListener("pointerup", onPointerUp);
-        renderer.domElement.removeEventListener("pointerdown", onInteractStart);
-        renderer.domElement.removeEventListener("pointerup", onInteractEnd);
+        renderer.domElement.removeEventListener("pointerdown", onOrbitPointerDown);
+        renderer.domElement.removeEventListener("pointermove", onOrbitPointerMove);
+        renderer.domElement.removeEventListener("pointerup", onOrbitPointerUp);
+        renderer.domElement.removeEventListener("wheel", onOrbitWheel);
         document.removeEventListener("visibilitychange", handleVisibility);
         renderer.dispose();
         if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);

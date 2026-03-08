@@ -284,7 +284,7 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
   const [showTelemetry, setShowTelemetry] = useState(false);
   const [booting, setBooting] = useState(true);
   const [isLandscape, setIsLandscape] = useState(false);
-  const jupiterReturnRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const jupiterReturnRef = useRef<ReturnType<typeof setTimeout> | null>(null); // kept for cleanup only
 
   useEffect(() => { if (mode !== "overview") setActiveTab(mode); }, [mode]);
 
@@ -358,11 +358,7 @@ export default function SpaceTrackerModal({ mode, open, onClose }: SpaceTrackerM
       else if (activeTab === "launches") focusOn({ type: "earth" });
       else if (activeTab === "radiojove") {
         focusOn({ type: "planet", id: "planet-jupiter" });
-        // Auto-return to Earth after 5s
-        jupiterReturnRef.current = setTimeout(() => {
-          focusOn({ type: "earth" });
-          jupiterReturnRef.current = null;
-        }, 5000);
+        // stay on Jupiter — user navigates away manually
       }
     }, 300);
     return () => { clearTimeout(t); if (jupiterReturnRef.current) { clearTimeout(jupiterReturnRef.current); jupiterReturnRef.current = null; } };

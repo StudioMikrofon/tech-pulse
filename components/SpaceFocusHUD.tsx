@@ -459,7 +459,7 @@ export default function SpaceFocusHUD({ obj, dashData, onClose }: SpaceFocusHUDP
   const timeStr = new Date().toLocaleTimeString("en-GB", { hour12: false });
 
   return (
-    <div className={`absolute inset-0 transition-opacity duration-300 ${vis ? "opacity-100" : "opacity-0"}`}>
+    <div className={`absolute inset-0 transition-opacity duration-300 pointer-events-none ${vis ? "opacity-100" : "opacity-0"}`}>
       <Scanlines />
       <Lines vis={vis} />
       <Reticle vis={vis} />
@@ -481,7 +481,7 @@ export default function SpaceFocusHUD({ obj, dashData, onClose }: SpaceFocusHUDP
       {/* Close */}
       <button
         onClick={onClose}
-        className="absolute z-20 font-mono text-[8px] text-white/25 hover:text-cyan-400 transition-colors cursor-pointer border border-white/8 hover:border-cyan-400/30 px-2 py-1"
+        className="absolute z-20 pointer-events-auto font-mono text-[8px] text-white/25 hover:text-cyan-400 transition-colors cursor-pointer border border-white/8 hover:border-cyan-400/30 px-2 py-1"
         style={{ top: "50px", right: "16px" }}
       >
         [ESC]

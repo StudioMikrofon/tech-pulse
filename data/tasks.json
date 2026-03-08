@@ -1,0 +1,32 @@
+[
+  {
+    "id": "1772985969885",
+    "prompt": "In the Latest News section, when the page language is English, ensure that article titles are displayed in English and the descriptions under the titles are also in English. Fix this error and edit the articles that are in Croatian so that all articles are displayed consistently.",
+    "summary": "Zadaća osigurava da naslovi i opisi budu na engleskom u Latest News kada je stranica na engleskom i da hrvatski članci budu prilagođeni dosljednosti.",
+    "raw": "U rubrici Latest News, kada je stranica na engleskom, naslovi članaka trebaju biti na engleskom, a opis ispod naslova također na engleskom. Potrebno je ispraviti tu grešku i urediti članke koji su na hrvatskom, kako bi se svi članci prikazivali dosljedno."
+  },
+  {
+    "id": "1772986103000",
+    "prompt": "In Space Tracker, when you click on a NEO, 2026DG7 opens, an asteroid that is not displayed on the screen. The camera must be moved for the asteroid to appear, as it is currently behind the Earth's angle.",
+    "summary": "Prikaz 2026DG7 u Space Trackeru zahtijeva pomicanje kamere jer je asteroid trenutno iza zemaljskih ugla i nije vidljiv na ekranu.",
+    "raw": "U Space Trackeru, kada klikneš na Neo, otvara se 2026DG7, asteroid koji ne prikazuje na ekranu. Treba pomaknuti kameru da bi se asteroid pojavio jer je trenutno iza zemaljskih ugla."
+  },
+  {
+    "id": "1772986171419",
+    "prompt": "On the 'Picture of the Day' page, add an image or enable the image to be clickable so that clicking it navigates to a page where it can be viewed.",
+    "summary": "Dodavanje slike na stranici 'Picture of the Day' ili omogućavanje da klik na sliku vodi na stranicu za prikaz.",
+    "raw": "Na stranici \"slika dana\" treba dodati sliku ili omogućiti da klik na sliku vodi do stranice gdje se moze vidjeti"
+  },
+  {
+    "id": "1772986241321",
+    "prompt": "Reduce the rotation speed of objects on the screen and correct the rotation direction so that downward movement continues downward. Also ensure that the entire Space Tracker is translated into English when on the English site and into Croatian when on the Croatian site.",
+    "summary": "Poboljšava se brzina i smjer rotacije objekata na ekranu te prevođenje Space Trackera prema jeziku stranice.",
+    "raw": "Smanjiti brzinu rotacije za objekte na ekranu i ispraviti smjer rotacije tako da se pomak prema dolje kreće prema dolje. Također, osigurati da se cijeli space tracker prevodi na engleski kada je na engleskoj stranici, a na hrvatski kada je na hrvatskoj stranici."
+  },
+  {
+    "id": "1772986293333",
+    "prompt": "Zoom functionality is not working; zoom in and zoom out actions cannot be performed. Additionally, when clicking on an object, it should immediately switch to that object regardless of where on the screen the click occurs.",
+    "summary": "Problem s funkcionalnošću zooma i navigacijom na objekt.",
+    "raw": "Zoom funkcionalnost ne radi, ne može se izvršiti zoom in ili zoom out. Također, kada se klikne na objekt, treba odmah prebaciti na taj objekt bez obzira na to gdje na ekranu se klikne."
+  }
+]

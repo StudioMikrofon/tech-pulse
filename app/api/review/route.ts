@@ -25,11 +25,35 @@ print(result)
   const proc = spawn(
     "/opt/openclaw/futurepulse/venv/bin/python3",
     ["-c", script],
-    {
-      cwd: "/opt/openclaw/futurepulse",
-      detached: true,
-      stdio: "ignore",
-    }
+    { cwd: "/opt/openclaw/futurepulse", detached: true, stdio: "ignore" }
+  );
+  proc.unref();
+}
+
+// One subprocess for multiple articles — single rebuild instead of N rebuilds
+function triggerBulkPublish(articleIds: number[]) {
+  const idsJson = JSON.stringify(articleIds);
+  const script = `
+import sys, sqlite3, logging
+sys.path.insert(0, '.')
+from core.vps_publisher import publish_to_vps
+logging.basicConfig(filename='logs/review_publish.log', level=logging.INFO)
+ids = ${idsJson}
+conn = sqlite3.connect('db/futurepulse.db')
+conn.row_factory = sqlite3.Row
+articles = []
+for aid in ids:
+    row = conn.execute('SELECT * FROM articles WHERE id=?', (aid,)).fetchone()
+    if row:
+        articles.append(dict(row))
+conn.close()
+result = publish_to_vps(articles)
+print(result)
+`;
+  const proc = spawn(
+    "/opt/openclaw/futurepulse/venv/bin/python3",
+    ["-c", script],
+    { cwd: "/opt/openclaw/futurepulse", detached: true, stdio: "ignore" }
   );
   proc.unref();
 }
@@ -125,22 +149,35 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, count });
     }
 
-    if (action === "bulk_publish") {
+    if (action === "bulk_publish" || action === "bulk_publish_random") {
       if (!Array.isArray(ids) || ids.length === 0) {
         return NextResponse.json({ error: "Missing ids" }, { status: 400 });
       }
+      const useRandom = action === "bulk_publish_random";
+      const endings = ["A", "B", "C"];
       const db = getDb();
-      const stmt = db.prepare(
+      const stmtEnding = db.prepare(
+        "UPDATE articles SET approved=1, status='approved', chosen_ending=? WHERE id=?"
+      );
+      const stmtNoEnding = db.prepare(
         "UPDATE articles SET approved=1, status='approved' WHERE id=?"
       );
-      let count = 0;
+      const toPublish: number[] = [];
       for (const articleId of ids) {
-        stmt.run(articleId);
-        triggerPublish(articleId);
-        count++;
+        if (useRandom) {
+          // Assign random ending if not already set
+          const row = db.prepare("SELECT chosen_ending FROM articles WHERE id=?").get(articleId) as { chosen_ending: string | null } | undefined;
+          const ending = row?.chosen_ending || endings[Math.floor(Math.random() * 3)];
+          stmtEnding.run(ending, articleId);
+        } else {
+          stmtNoEnding.run(articleId);
+        }
+        toPublish.push(articleId);
       }
       db.close();
-      return NextResponse.json({ ok: true, count });
+      // Single subprocess = single rebuild
+      triggerBulkPublish(toPublish);
+      return NextResponse.json({ ok: true, count: toPublish.length });
     }
 
     // --- Single actions ---

@@ -1,0 +1,32 @@
+---
+id: "2026-03-08-firefox-crashes-when-your-ram-betrays-you"
+title: "15% Firefox padova dolazi od grešaka u memoriji: koliko je ozbiljno?"
+lang: "hr"
+category: "technology"
+date: "2026-03-08T12:00:00Z"
+excerpt: "Mozillajev inženjer nedavno je iznio alarmantnu tvrdnju: do 15% svih padova Firefox preglednika potječe od *bit flipova* – nasumičnih grešaka u memoriji koje mijenjaju vrijednost pojedinih bitova."
+source:
+  name: "Tom's Hardware"
+  url: "https://www.tomshardware.com/pc-components/ram/bit-flips-cause-up-to-15-percent-of-firefox-crashes-asserts-mozilla-engineer-figure-inferred-from-470-000-auto-submitted-crash-reports"
+image:
+  url: "/images/articles/firefox-crashes-when-your-ram-betrays-you/main.jpg"
+  alt: "15% Firefox padova dolazi od grešaka u memoriji: koliko je ozbiljno?"
+subtitle: "Zašto Mozillajeva analiza 470.000 padova otvara pitanje pouzdanosti hardvera i softvera"
+subtitleImage:
+  url: "/images/articles/firefox-crashes-when-your-ram-betrays-you/subtitle.jpg"
+  alt: "Zašto Mozillajeva analiza 470.000 padova otvara pitanje pouzdanosti hardvera i softvera"
+tags: ["future-pulse", "automated", "technology"]
+geo:
+  name: "Mountain View, United States"
+  lat: 37.386052
+  lon: -122.083851
+  countryCode: "US"
+featured: false
+approved: true
+---
+
+Mozillajev inženjer nedavno je iznio alarmantnu tvrdnju: do 15% svih padova Firefox preglednika potječe od *bit flipova* – nasumičnih grešaka u memoriji koje mijenjaju vrijednost pojedinih bitova. Brojku je izračunao analizom 470.000 automatski poslanih izvještaja o padovima, što čini jedinstvenu sliku o razmjerima problema koji često prolazi nezapaženo. Iako je riječ o procjeni, a ne konačnoj statistici, činjenica da se radi o takvom uzorku nameće pitanje: koliko su zapravo stabilni današnji računalni sustavi, pogotovo kad se uzme u obzir da su padovi često pripisivani softverskim greškama ili lošem optimiziranju. Bit flip nije novi fenomen, ali rijetko se spominje u kontekstu svakodnevnih korisničkih iskustava. Radi se o fizičkom problemu u memorijskim čipovima, gdje, primjerice, kozmičke zrake ili kvarovi u hardveru mogu promijeniti stanje bita s 0 na 1 ili obrnuto. Iako su suvremeni DRAM moduli dizajnirani da minimiziraju takve greške – primjerice korištenjem ECC memorije u profesionalnim sustavima – većina korisničkih uređaja i dalje koristi jeftinije, nezaštićene module. Rezultat? Nasumični padovi koji se teško dijagnosticiraju jer često liče na softverske bugove ili probleme s upravljačkim programima. Ono što Firefoxova analiza otkriva nije samo izolirani slučaj, već pokazatelj šireg problema. Ako 15% padova jednog od najkorištenijih preglednika dolazi od hardverskih grešaka, koliko je onda sličnih problema prisutno u drugim aplikacijama? Pretraživači, igrice, pa čak i operacijski sustavi svaki dan se suočavaju s ovim tihim greškama, ali rijetko se o njima otvoreno govori. Razlog je jednostavan: bit flipove je gotovo nemoguće reproducirati, što ih čini izuzetno teškim za ispravljanje. Za korisnike koji ne prate tehničke detalje, ovo možda zvuči kao apstraktan problem. No, posljedice su vrlo konkretne: češći padovi znače gubitak vremena, rada, a u ekstremnim slučajevima čak i oštećenje datoteka. U svijetu u kojem se sve više oslanjamo na cloud usluge i online alate, pouzdanost hardvera postaje ključna kao nikad prije. Iako Firefox nije jedini softver koji se suočava s ovim problemom, njegova otvorenost u iznošenju podataka pruža rijetku priliku za dublju analizu.
+
+<ArticleBreak />
+
+Međutim, pitanje je koliko su ove brojke reprezentativne za cijelu industriju. Mozillajeva analiza temelji se na izvještajima uređaja koji su *već* doživjeli pad, što znači da ne obuhvaća sve korisnike koji možda imaju stabilnije sustave. Ipak, čak i ako je stvarni udio manji – recimo 5 ili 10 posto – i dalje je riječ o značajnom broju korisnika koji svaki dan gube rad zbog problema koji nije softverski. To nameće dodatna pitanja o kvaliteti memorijskih modula koji se koriste u potrošačkim uređajima. Dok profesionalni sustavi često koriste ECC memoriju koja ispravlja pogreške, većina kućnih računala i laptopa oslanja se na jeftinije module koji takvu zaštitu nemaju. Ono što je zanimljivo u ovom slučaju je da Mozillajeva analiza možda otvara vrata diskusiji o standardima koji se primjenjuju u industriji. Ako su bit flipovi zaista toliko rašireni, trebaju li proizvođači hardvera razmotriti šire uvođenje ECC memorije čak i u potrošačke uređaje? Ili je možda problem više u softverskoj strani, gdje bi aplikacije trebale bolje prepoznavati i mitigirati posljedice ovakvih grešaka? Firefox već ima mehanizme za prijavu padova, ali malo je preglednika ili aplikacija koje idu korak dalje i pokušavaju identificirati hardverske probleme. Za prosječnog korisnika, ova vijest znači jednu važnu stvar: padovi koje pripisujemo 'lošem softveru' mogu imati korijen u hardveru. To mijenja način na koji gledamo na stabilnost sustava. Umjesto da automatski krivimo programere ili OS, vrijedi razmotriti da je dio tih problema izvan njihove kontrole.

@@ -1,0 +1,32 @@
+---
+id: "2026-03-08-ciscos-10-0-flaws-when-critical-update-means-rebui"
+title: "Ciscoov sigurnosni kolaps: Kako dva buga ruše vjeru u firewalle"
+lang: "hr"
+category: "technology"
+date: "2026-03-08T12:00:00Z"
+excerpt: "Ako ste mislili da je 2026."
+source:
+  name: "NotebookCheck"
+  url: "https://www.notebookcheck.net/Cisco-admits-total-security-failure-Critical-flaws-give-hackers-complete-control.1243546.0.html"
+image:
+  url: "/images/articles/ciscos-10-0-flaws-when-critical-update-means-rebui/main.jpg"
+  alt: "Ciscoov sigurnosni kolaps: Kako dva buga ruše vjeru u firewalle"
+subtitle: "48 ranjivosti, dvije kritične – što znači za tvrtke koje se oslanjaju na ovu opremu?"
+subtitleImage:
+  url: "/images/articles/ciscos-10-0-flaws-when-critical-update-means-rebui/subtitle.jpg"
+  alt: "48 ranjivosti, dvije kritične – što znači za tvrtke koje se oslanjaju na ovu opremu?"
+tags: ["future-pulse", "automated", "technology"]
+geo:
+  name: "San Jose, United States"
+  lat: 37.338208
+  lon: -121.886329
+  countryCode: "US"
+featured: false
+approved: true
+---
+
+Ako ste mislili da je 2026. godina u kojoj će se sigurnosne prijetnje barem malo smiriti, Cisco je upravo to opovrgnuo s jednim od najozbiljnijih paketa zakrpa u posljednjih nekoliko godina. [March 2026 Security Advisory Bundle](https://sec.cloudapps.cisco.com/security/center/publicationListing.x?product=Cisco&sort=-day_sir#~Vulnerabilities) donosi popravke za **48 ranjivosti** raspršenih kroz 25 sigurnosna upozorenja, ali su dvije od njih toliko ozbiljne da su dobile maksimalni **CVSS 10.0** rejting – što u praksi znači da napadač s minimalnim naporom može preuzeti **potpunu kontrolu** nad zahvaćenim sustavom. Problem je širi od same tehnike: riječ je o **Secure Firewall Management Center (FMC)**, središtu iz kojeg se upravlja cijelom mrežnom obranom. Ako se ova dva buga iskoriste, prema dostupnim informacijama, napadač ne samo da može provaliti u sustav, nego **mijenjati konfiguracije, ugasiti zaštitu ili čak koristiti kompromitirane uređaje kao odskočnu dasku za napade na drugu infrastrukturu**. To nije teorija – CVSS 10.0 je rezerviran samo za najgore scenarije, poput [EternalBlue](https://en.wikipedia.org/wiki/EternalBlue) koji je 2017. paralizirao globalne tvrtke. Zašto je ovo važno? Jer Ciscoova oprema **ne štiti samo uredske mreže** – koristi je bankarski sektor, kritična infrastruktura, pa čak i vojne organizacije. Ako je ranjivost prisutna u FMC-u, to znači da je **cijeli lanac povjerenja ugrožen**, a ne samo pojedini uređaj. I dok Cisco tvrdi da „nije svjestan aktivne zlouporabe“, pitanje nije *hoće li* biti iskorišteno, nego *kada će* se to dogoditi. Sigurnosni stručnjaci već [upozoravaju](https://www.bleepingcomputer.com/news/security/cisco-warns-of-critical-flaws-in-firewall-management-center-allowing-rce/) da će ova vrsta propusta privući pažnju i kriminalaca i državno sponzoriranih grupa. Dodatni problem je **kompleksnost zakrpavanja**. Ciscoove zakrpe često zahtijevaju ručno ažuriranje, testiranje kompatibilnosti i potencijalno gašenje sustava – što za velike tvrtke znači **satima ili čak danima prekinutog rada**. A u svijetu gdje je *downtime* jednak gubitku novca, pitanje je koliko će organizacija odgoditi ažuriranje… i time postati laka meta.
+
+<ArticleBreak />
+
+Na papiru, Cisco i dalje ostaje jedan od vodećih igrača na tržištu mrežne sigurnosti, ali ovakvi incidenti postavljaju pitanje: **je li vjera u „sve-u-jedom“ rješenja opravdana?** Konkurenti poput [Palo Alto Networks](https://www.paloaltonetworks.com/) ili Fortineta već godinama ističu modularniji pristup, gdje je kompromitacija jednog dijela sustava manje katastrofalna. Međutim, migracija s Ciscoove infrastrukture nije trivijalna – riječ je o **milijunskim investicijama u hardver, obuku i licencije**, pa će mnoge tvrtke i dalje biti vezane za ovu platformu, bez obzira na rizike. Što konkretno trebaju učiniti korisnici? Prvo, **nemojte čekati** – zakrpe su već dostupne, a Cisco nudi [detaljne upute](https://www.cisco.com/c/en/us/support/docs/security/firepower-management-center/215456-march-2026-cisco-fmc-vulnerabilities.html) za implementaciju. Drugo, provjerite **koji su uređaji izloženi**: ranjivosti utječu na Secure FMC (verzije prije 7.4.1.15), ali i na povezanu opremu poput ASA i FTD firewalla. Treće, razmislite o **segmentaciji mreže** – ako napadač dođe do FMC-a, ne smije moći slobodno kretati kroz cijelu infrastrukturu. No, stvarni test će biti u sljedećih nekoliko tjedana. Ako se pojave dokazi o aktivnoj zlouporabi (a to je, prema iskustvu, vrlo vjerojatno), Cisco će se suočiti ne samo s tehničkim, nego i s **reputacijskim problemom**. Tvrtke koje su uložile u ovu platformu pitat će se je li rizik opravdan – posebno u usporedbi s alternativama koje nude bolju izolaciju između komponenata. A za krajnje korisnike, od IT administratora do CISO-a, ovo je još jedan podsjetnik da **sigurnost nije proizvod, nego proces** – i da čak ni najskuplja oprema nije imuna na fundamentalne greške u dizajnu.

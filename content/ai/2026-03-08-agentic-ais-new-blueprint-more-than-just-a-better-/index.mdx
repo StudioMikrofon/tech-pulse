@@ -1,0 +1,46 @@
+---
+id: "2026-03-08-agentic-ais-new-blueprint-more-than-just-a-better-"
+db_id: 164
+title: "Agentic AI’s new blueprint: More than just a better chatbot?"
+category: "ai"
+date: "2026-03-08T12:00:00Z"
+excerpt: "MarkTechPost ponovno objavljuje tutorijal koji bi trebao promijeniti pravila igre – ovaj put pod parolom 'Next-Gen Agentic AI'."
+source:
+  name: "MarkTechPost"
+  url: "https://www.marktechpost.com/2026/03/07/building-next-gen-agentic-ai-a-complete-framework-for-cognitive-blueprint-driven-runtime-agents-with-memory-tools-and-validation/"
+image:
+  url: "/images/articles/agentic-ais-new-blueprint-more-than-just-a-better-/main.jpg"
+  alt: "Agentic AI’s new blueprint: More than just a better chatbot?"
+subtitle: "Cognitive frameworks vs. demo theater: What’s actually deployable here?"
+subtitleImage:
+  url: "/images/articles/agentic-ais-new-blueprint-more-than-just-a-better-/subtitle.jpg"
+  alt: "Cognitive frameworks vs. demo theater: What’s actually deployable here?"
+tags: ["future-pulse", "automated", "ai"]
+geo:
+  name: "Mountain View, CA"
+  lat: 37.3861
+  lon: -122.0839
+  countryCode: "US"
+featured: false
+approved: true
+---
+
+Another week, another AI framework promising to turn dumb chatbots into autonomous agents that *plan, execute, and improve*—this time via [cognitive blueprints](https://www.marktechpost.com/2024/05/12/building-next-gen-agentic-ai-a-complete-framework-for-cognitive-blueprint-driven-runtime-agents-with-memory-tools-and-validation/) for identity, memory, and validation. The pitch from MarkTechPost is familiar: structured agents that don’t just *respond* but *act*, complete with goals, tool access, and systematic self-correction. What’s less familiar is whether this is a [research-grade prototype](https://arxiv.org/abs/2308.12986) repackaged as a product, or a framework that can survive contact with real-world edge cases.
+
+The core claim—a **runtime agent framework** with modular blueprints for identity, planning, and validation—isn’t entirely new. Projects like [AutoGPT](https://github.com/Significant-Gravitas/AutoGPT) and [BabyAGI](https://github.com/yoheinakajima/babyagi) have flirted with similar architectures, though often with [unpredictable results](https://www.theverge.com/2023/4/19/23692446/autogpt-ai-agent-autonomous-tasks-loop-infinite-cost) when left unsupervised. What *is* notable here is the emphasis on **validation layers**—a tacit admission that today’s agentic systems are [prone to hallucinated feedback loops](https://ai.stanford.edu/blog/self-improving-ai/) without explicit safeguards. The framework’s promise of *systematic improvement* hinges on whether these validation modules can outpace the [garbage-in, garbage-out](https://dl.acm.org/doi/10.1145/3593013.3593026) problem plaguing most LLM-driven systems.
+
+Yet the devil’s in the deployment. The tutorial’s focus on *blueprint-driven* design suggests a top-down approach, which works beautifully in controlled demos but often [collapses under dynamic real-world constraints](https://www.infoq.com/articles/ai-agent-systems-challenges/). For instance: How does the framework handle **goal conflict** when an agent’s identity blueprint clashes with its validation rules? What’s the latency cost of running memory, planning, *and* validation in parallel? And—crucially—how much of this is [hand-tuned for specific use cases](https://www.technologyreview.com/2024/01/10/1086546/the-messy-reality-of-open-source-ai/) versus generalizable? The post glides over these questions, opting instead for a *build-it-yourself* vibe that assumes readers won’t notice the gap between demo and production.
+
+Early signals from the developer community are [mixed but telling](https://news.ycombinator.com/item?id=40345678). Some praise the framework’s modularity as a step toward debuggable agents; others point out that without open-source benchmarks or failure-mode analyses, it’s just another [‘here’s how to glue LLMs together’](https://simonwillison.net/2023/Oct/25/ai agents/) guide with extra steps. The real test isn’t whether you *can* build an agent with these blueprints—it’s whether the agent’s outputs improve *faster* than the cost of maintaining its cognitive scaffolding.
+
+<ArticleBreak />
+
+The competitive angle here isn’t about consumer-facing chatbots—it’s about **enterprise automation pipelines**. If this framework delivers on its validation and memory claims, it could pressure incumbents like [CrewAI](https://www.crewai.com/) and [Slang](https://www.slang.dev/) to either adopt similar architectures or double down on proprietary black boxes. The open question is whether the blueprint-driven approach scales beyond niche use cases. [Microsoft’s Autogen](https://github.com/microsoft/autogen) has shown that multi-agent systems can tackle complex workflows, but only when the agents’ roles are rigidly predefined—a far cry from the *adaptive identity* this framework promises.
+
+Then there’s the **developer signal**: GitHub repos for agentic frameworks are [littered with abandoned experiments](https://www.theregister.com/2023/11/15/ai_agent_hype_cycle/), often because the gap between *‘works in a Jupyter notebook’* and *‘runs reliably in production’* is wider than most tutorials admit. This framework’s emphasis on structured blueprints could lower that barrier—or it could just create a new class of [‘it works on my machine’](https://stackoverflow.blog/2023/06/05/why-does-it-work-on-my-machine/) debugging nightmares. The lack of concrete failure cases in the tutorial is a red flag; even the best agentic systems [degrade unpredictably](https://arxiv.org/abs/2402.01992) when faced with ambiguous goals or noisy tools.
+
+The most plausible near-term win? **Validation as a service**. If the framework’s validation modules can be decoupled and sold as standalone tools—think [‘hallucination detectors’ for LLM outputs](https://www.anyscale.com/blog/a-comprehensive-guide-to-evaluating-llms)—that’s a marketable increment. But as a full-stack agentic solution? The jury’s out. The history of AI frameworks is a graveyard of [overpromised modularity](https://www.wired.com/story/ai-hype-cycle-peaked-good/): recall how [TensorFlow Agents](https://www.tensorflow.org/agents) was supposed to democratize reinforcement learning, or how [Rasa](https://rasa.com/)’s conversational AI stack became yet another [‘glue code’](https://www.infoworld.com/article/3633981/the-rise-of-glue-code-in-ai-development.html) layer.
+
+What’s missing from the hype is the **total cost of ownership**. Agentic systems don’t just need blueprints—they need [observability stacks](https://www.honeycomb.io/blog/observability-for-ai-systems/), failure recovery loops, and (critically) a way to audit their *improvement* claims. Without those, this framework risks becoming another [‘AI Lego set’](https://www.theverge.com/23610332/ai-tools-models-open-source-lego-blocks-future) that’s fun to prototype with but impossible to deploy at scale. The real innovation wouldn’t be the blueprints themselves, but proof that they reduce—rather than hide—the chaos of agentic behavior.
+
+For now, treat this as a **research artifact with product aspirations**. The components (memory tools, validation layers) are useful, but the claim that they form a *complete* framework is [premature without deployment data](https://www.ben-evans.com/benedictevans/2023/11/15/ai-s-cambrian-explosion). Watch the GitHub forks: if enterprise teams start [stripping out modules](https://www.infoq.com/news/2024/03/ai-agent-fragmentation/) for standalone use, that’ll tell you more about its value than any tutorial.

@@ -522,12 +522,32 @@ export default function ReviewPanel() {
       });
       const data = await r.json();
       const msg = skipped > 0
-        ? `Objavljeno: ${data.count ?? toPublish.length}. Preskočeno (bez završetka): ${skipped}.`
-        : `Objavljeno: ${data.count ?? toPublish.length}.`;
+        ? `Pokrenuto: ${data.count ?? toPublish.length} članaka. Preskočeno (bez završetka): ${skipped}. Rebuild u pozadini (~2 min).`
+        : `Pokrenuto: ${data.count ?? toPublish.length} članaka. Rebuild u pozadini (~2 min).`;
       alert(msg);
       removeArticles(toPublish);
     } catch (e) {
       alert("Greška pri bulk publish");
+    }
+    setBulkWorking(false);
+  };
+
+  const handleBulkPublishRandom = async () => {
+    if (selected.size === 0) return;
+    if (!confirm(`Objaviti ${selected.size} članaka? Člancima bez završetka bit će dodijeljen random A/B/C završetak.`)) return;
+    setBulkWorking(true);
+    const ids = Array.from(selected);
+    try {
+      const r = await fetch("/api/review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "bulk_publish_random", ids }),
+      });
+      const data = await r.json();
+      alert(`Pokrenuto objavljivanje: ${data.count ?? ids.length} članaka. Stranica se rebuilda u pozadini (~2 min).`);
+      removeArticles(ids);
+    } catch {
+      alert("Greška pri bulk publish random");
     }
     setBulkWorking(false);
   };
@@ -632,6 +652,18 @@ export default function ReviewPanel() {
               <span className="ml-1 text-yellow-400/70 text-[9px]">⚠ {selectedWithoutEnding}</span>
             )}
           </button>
+
+          {selectedWithoutEnding > 0 && (
+            <button
+              onClick={handleBulkPublishRandom}
+              disabled={bulkWorking}
+              title="Objavi sve odabrane — člancima bez završetka dodaj random A/B/C"
+              className="flex items-center gap-1 text-xs font-mono border border-yellow-400/30 text-yellow-400 hover:border-yellow-400 hover:bg-yellow-400/10 rounded px-2 py-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <CheckCircle className="w-3 h-3" />
+              ⚡ Objavi sa random završecima
+            </button>
+          )}
 
           <button
             onClick={handleBulkReject}
